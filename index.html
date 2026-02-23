@@ -1,0 +1,2290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Leon's Maze Adventure</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #1a1a2e;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: env(safe-area-inset-top, 8px);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #eee;
+  }
+  h1 {
+    margin: 4px 0;
+    font-size: min(5.5vw, 24px);
+    color: #e94560;
+    text-shadow: 0 0 10px rgba(233,69,96,0.5);
+  }
+  #info {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: min(100%, 640px);
+    padding: 0 8px;
+    margin-bottom: 2px;
+    font-size: min(3.5vw, 14px);
+  }
+  #info-left { text-align: left; }
+  #info-center { text-align: center; }
+  #info-right { text-align: right; }
+  #info-row2 {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    width: min(100%, 640px);
+    padding: 0 8px;
+    margin-bottom: 2px;
+    font-size: min(3.5vw, 14px);
+  }
+  #info span { color: #ffd700; }
+  #level-label { color: #00ff88; font-weight: bold; }
+  #lives-display { display: flex; align-items: center; gap: 1px; flex-wrap: wrap; }
+  .heart-icon { color: #e94560; font-size: min(4.5vw, 18px); line-height: 1; }
+  .heart-icon.lost { color: #333; }
+  #key-status { color: #555; font-size: min(4vw, 16px); }
+  #key-status.has-key { color: #ffd700; text-shadow: 0 0 6px rgba(255,215,0,0.6); }
+
+  #game-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 0;
+  }
+  canvas {
+    border: 2px solid #e94560;
+    border-radius: 6px;
+    box-shadow: 0 0 20px rgba(233,69,96,0.3);
+    display: block;
+  }
+
+  /* Bottom controls wrapper — stacks on desktop, side-by-side on mobile */
+  #bottom-controls {
+    flex-shrink: 0;
+  }
+  /* D-pad always visible on touch devices */
+  #mobile-controls {
+    display: none;
+    padding: 6px 0;
+    padding-bottom: max(env(safe-area-inset-bottom, 6px), 6px);
+    flex-shrink: 0;
+  }
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, min(11vw, 44px));
+    grid-template-rows: repeat(3, min(11vw, 44px));
+    gap: 2px;
+    justify-content: center;
+  }
+  .dpad-empty { }
+  .dpad button {
+    width: 100%; height: 100%;
+    font-size: min(5vw, 20px);
+    background: #16213e;
+    color: #e94560;
+    border: 2px solid #e94560;
+    border-radius: 10px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .dpad button:active, .dpad button.pressed { background: #e94560; color: white; }
+
+  #instructions {
+    font-size: min(2.8vw, 11px);
+    color: #666;
+    margin: 2px 0;
+    text-align: center;
+    padding: 0 8px;
+  }
+
+  /* Stars */
+  .stars { color: #ffd700; letter-spacing: 2px; }
+
+  /* Ability bar */
+  #ability-bar {
+    display: none; /* shown during gameplay */
+    gap: 6px; justify-content: center; align-items: center;
+    padding: 2px 0; flex-shrink: 0;
+  }
+  .ability-slot {
+    position: relative; width: min(14vw, 56px); height: min(14vw, 56px);
+    border: 2px solid #444; border-radius: 10px; background: #16213e;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: min(2.5vw, 10px); color: #888; overflow: hidden;
+    -webkit-tap-highlight-color: transparent; cursor: pointer;
+  }
+  .ability-slot.ready { border-color: #ffd700; color: #ffd700; }
+  .ability-slot.active { border-color: #00ff88; background: rgba(0,255,136,0.15); }
+  .ability-slot.locked { opacity: 0.3; }
+  .ability-slot .cd-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.6);
+    transition: height 0.1s;
+  }
+  .ability-slot .ability-icon { font-size: min(5vw, 20px); z-index: 1; }
+  .ability-slot .ability-key { font-size: min(2vw, 8px); color: #666; z-index: 1; }
+
+  /* Pause button */
+  #pause-btn {
+    position: fixed; top: env(safe-area-inset-top, 8px); right: 10px;
+    z-index: 5; background: rgba(22,33,62,0.8); border: 2px solid #e94560;
+    color: #e94560; font-size: 18px; width: 36px; height: 36px;
+    border-radius: 8px; cursor: pointer; display: none;
+    align-items: center; justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #pause-btn:active { background: #e94560; color: #fff; }
+
+  /* Overlays */
+  .overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 10;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .overlay.show { display: flex; }
+  .overlay h2 { font-size: min(9vw, 40px); color: #ffd700; margin-bottom: 12px; text-align: center; }
+  .overlay h3 { font-size: min(6vw, 22px); color: #e94560; margin-bottom: 6px; }
+  .overlay p { font-size: min(4.2vw, 17px); margin-bottom: 6px; color: #ccc; text-align: center; }
+  .overlay .highlight { color: #ffd700; }
+
+  /* Legend on intro */
+  .legend { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; font-size: min(3.2vw, 13px); }
+  .legend-row { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: min(4vw, 16px); height: min(4vw, 16px); border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+  .btn {
+    margin-top: 10px;
+    padding: min(3vw, 12px) min(7vw, 28px);
+    font-size: min(4.2vw, 16px);
+    background: #e94560;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:hover { background: #c73650; }
+  .btn-green { background: #27ae60; }
+  .btn-green:hover { background: #1e8449; }
+  .btn-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+
+  /* Level select */
+  #level-select-grid {
+    display: grid;
+    grid-template-columns: repeat(5, min(16vw, 68px));
+    gap: min(2.5vw, 8px);
+    margin: 12px 0;
+  }
+  .level-btn {
+    aspect-ratio: 1;
+    border: 2px solid #e94560;
+    background: #16213e;
+    color: #eee;
+    font-size: min(5vw, 20px);
+    font-weight: bold;
+    border-radius: 10px;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .level-btn:active { background: #e94560; transform: scale(1.05); }
+  .level-btn.locked { opacity: 0.35; cursor: not-allowed; }
+  .level-btn.locked:active { background: #16213e; transform: none; }
+  .level-btn.completed { border-color: #27ae60; }
+  .level-btn .lbl { font-size: min(2.5vw, 10px); color: #888; margin-top: 2px; }
+  .level-btn.completed .lbl { color: #27ae60; }
+
+  #color-picker {
+    display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;
+  }
+  .color-swatch {
+    width: min(7vw, 28px); height: min(7vw, 28px); border-radius: 50%;
+    border: 2px solid #333; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform 0.15s;
+  }
+  .color-swatch.selected { border-color: #ffd700; transform: scale(1.2); box-shadow: 0 0 8px rgba(255,215,0,0.5); }
+  .color-swatch.locked-color { opacity: 0.25; cursor: not-allowed; }
+
+  #progress-bar { width: min(50vw, 200px); height: 5px; background: #16213e; border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  #progress-fill { height: 100%; background: linear-gradient(90deg, #e94560, #ffd700); border-radius: 3px; transition: width 0.5s; }
+
+  /* Mobile: overlay controls on top of game, maximize canvas space */
+  @media (hover: none) and (pointer: coarse), (max-width: 768px) {
+    h1 { display: none; }
+    #instructions { display: none; }
+    #info, #info-row2 { font-size: min(3vw, 12px); margin-bottom: 1px; }
+    .heart-icon { font-size: min(3.5vw, 14px) !important; }
+    #game-area { flex: 1; min-height: 0; }
+    /* Float controls over the game */
+    #bottom-controls {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      padding: 0 6px;
+      padding-bottom: max(env(safe-area-inset-bottom, 4px), 4px);
+      pointer-events: none; z-index: 10;
+    }
+    #mobile-controls { display: block; padding: 0; pointer-events: auto; opacity: 0.7; }
+    #ability-bar {
+      flex-direction: column !important; padding: 0; gap: 3px !important;
+      pointer-events: auto; opacity: 0.7;
+    }
+    .dpad {
+      grid-template-columns: repeat(3, 36px) !important;
+      grid-template-rows: repeat(3, 36px) !important;
+      gap: 2px !important;
+    }
+    .dpad button { font-size: 16px !important; border-radius: 8px !important; }
+    .ability-slot { width: 36px !important; height: 36px !important; border-radius: 8px !important; }
+    .ability-slot .ability-icon { font-size: 14px !important; }
+    .ability-slot .ability-key { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Leon's Maze Adventure</h1>
+<div id="info">
+  <div id="info-left">Level: <span id="level-label">1</span></div>
+  <div id="info-center">Coins: <span id="coin-display">0</span> <span id="combo-display" style="color:#ff0;display:none;">x1</span></div>
+  <div id="info-right">Time: <span id="timer">0</span>s</div>
+</div>
+<div id="info-row2">
+  <div id="lives-display" style="text-align:left;"></div>
+  <div id="key-status">&#128477;</div>
+  <div style="text-align:right;font-size:min(2.8vw,11px);color:#666;" id="score-display"></div>
+</div>
+<div id="game-area"><canvas id="game" width="640" height="640"></canvas></div>
+<div id="instructions">KEY unlocks exit | Hearts = +1 life | Coins = score | P = Pause | Abilities: Space/Shift/F</div>
+
+<button id="pause-btn" onclick="togglePause()">&#10074;&#10074;</button>
+
+<div id="bottom-controls">
+  <div id="mobile-controls">
+    <div class="dpad">
+      <div class="dpad-empty"></div>
+      <button id="btn-up">&#9650;</button>
+      <div class="dpad-empty"></div>
+      <button id="btn-left">&#9664;</button>
+      <div class="dpad-empty"></div>
+      <button id="btn-right">&#9654;</button>
+      <div class="dpad-empty"></div>
+      <button id="btn-down">&#9660;</button>
+      <div class="dpad-empty"></div>
+    </div>
+  </div>
+  <div id="ability-bar">
+    <div class="ability-slot locked" id="slot-dash" onclick="useAbility('dash')">
+      <div class="cd-overlay" style="height:0%"></div>
+      <span class="ability-icon">&#9889;</span>
+      <span class="ability-key">SPACE</span>
+    </div>
+    <div class="ability-slot locked" id="slot-shield" onclick="useAbility('shield')">
+      <div class="cd-overlay" style="height:0%"></div>
+      <span class="ability-icon">&#128737;</span>
+      <span class="ability-key">SHIFT</span>
+    </div>
+    <div class="ability-slot locked" id="slot-freeze" onclick="useAbility('freeze')">
+      <div class="cd-overlay" style="height:0%"></div>
+      <span class="ability-icon">&#10052;</span>
+      <span class="ability-key">F</span>
+    </div>
+  </div>
+</div>
+
+<!-- Title / Level Select -->
+<div class="overlay show" id="title-screen">
+  <h2>Leon's Maze Adventure</h2>
+  <p>10 levels from easy to hard!</p>
+  <div id="level-select-grid"></div>
+  <div id="progress-bar"><div id="progress-fill" style="width:0%"></div></div>
+  <p style="font-size:min(3vw,12px);color:#666;margin-top:4px;" id="progress-text">0 / 10 completed</p>
+  <div id="color-picker" style="margin-top:8px;"></div>
+  <p style="font-size:min(2.5vw,10px);color:#555;margin-top:2px;" id="total-coins-text"></p>
+  <button class="btn" style="margin-top:6px;font-size:min(3vw,12px);padding:6px 16px;background:#16213e;border:1px solid #e94560;" id="sound-toggle" onclick="toggleSound()"></button>
+</div>
+
+<!-- Level intro -->
+<div class="overlay" id="level-intro">
+  <h3 id="intro-level-name">Level 1</h3>
+  <p id="intro-level-title" class="highlight"></p>
+  <p id="intro-difficulty"></p>
+  <p id="intro-desc" style="max-width:400px;color:#aaa;font-size:min(3.5vw,14px);"></p>
+  <div class="legend" id="intro-legend"></div>
+  <button class="btn btn-green" onclick="startCurrentLevel()">Start</button>
+</div>
+
+<!-- Level complete -->
+<div class="overlay" id="level-complete">
+  <h2 id="complete-title">Level Complete!</h2>
+  <p id="complete-stats"></p>
+  <p id="complete-stars" class="stars" style="font-size:min(8vw,32px);"></p>
+  <div class="btn-row">
+    <button class="btn" onclick="showTitleScreen()">Level Select</button>
+    <button class="btn btn-green" id="next-level-btn" onclick="goNextLevel()">Next Level</button>
+  </div>
+</div>
+
+<!-- Game over -->
+<div class="overlay" id="game-over">
+  <h2 style="color:#e94560;">Game Over</h2>
+  <p id="gameover-text"></p>
+  <p id="gameover-stats"></p>
+  <div class="btn-row">
+    <button class="btn" onclick="showTitleScreen()">Level Select</button>
+    <button class="btn btn-green" onclick="retryLevel()">Retry</button>
+  </div>
+</div>
+
+<!-- Paused -->
+<div class="overlay" id="paused-screen">
+  <h2 style="color:#e94560;">Paused</h2>
+  <p>Press P or tap Resume to continue</p>
+  <div class="btn-row">
+    <button class="btn" onclick="showTitleScreen()">Quit</button>
+    <button class="btn" id="pause-sound-toggle" onclick="toggleSound()" style="background:#16213e;border:1px solid #e94560;"></button>
+    <button class="btn btn-green" onclick="togglePause()">Resume</button>
+  </div>
+</div>
+
+<!-- All complete -->
+<div class="overlay" id="all-complete">
+  <h2>Congratulations!</h2>
+  <p>You conquered all 10 mazes!</p>
+  <p class="stars" style="font-size:min(10vw,40px);">&#9733;&#9733;&#9733;&#9733;&#9733;</p>
+  <button class="btn btn-green" onclick="showTitleScreen()">Play Again</button>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+
+// ============================================================
+// EVENT SYSTEM (Observer pattern)
+// Decoupled communication hub - UI and audio subscribe to game events
+// ============================================================
+const GameEvents = {
+  _listeners: {},
+  on(event, fn) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(fn);
+  },
+  off(event, fn) {
+    if (!this._listeners[event]) return;
+    this._listeners[event] = this._listeners[event].filter(f => f !== fn);
+  },
+  emit(event, data) {
+    if (!this._listeners[event]) return;
+    for (const fn of this._listeners[event]) fn(data);
+  },
+  clear() { this._listeners = {}; }
+};
+
+// ============================================================
+// TILE CODES
+// 0=wall  1=path  2=heart  3=purple monster (2 dmg)
+// 4=start 5=exit  6=fire   7=red monster (3 dmg)  8=black monster (4 dmg)
+// 9=key  10=treasure box (15 hearts)
+// ============================================================
+const MONSTER_TYPES = {
+  3: { name: 'Purple Slime', color: '#9b59b6', stroke: '#8e44ad', glow: 'rgba(155,89,182,0.3)', damage: 2 },
+  7: { name: 'Red Demon',    color: '#e74c3c', stroke: '#c0392b', glow: 'rgba(231,76,60,0.3)',   damage: 3 },
+  8: { name: 'Dark Shadow',  color: '#2c2c2c', stroke: '#111',    glow: 'rgba(0,0,0,0.4)',       damage: 4 },
+};
+
+const LEVELS = [
+
+// --- LEVEL 1: The Beginning (very easy, no monsters, no fire) ---
+{
+  name: "Level 1", title: "The Beginning", difficulty: 1,
+  desc: "A simple maze to get started. Find the exit!",
+  lives: 5, monsterSpeed: 0,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,1,1,1,0,1,2,1,1,0,1,1,9,1,0],
+    [0,1,0,1,0,1,0,0,1,0,1,0,0,1,0],
+    [0,10,0,1,1,1,0,0,1,1,1,0,0,1,0],
+    [4,1,0,0,0,0,0,0,0,0,0,0,0,1,0],
+    [0,1,0,1,1,2,1,1,1,0,0,0,0,1,0],
+    [0,1,0,1,0,0,0,0,1,0,0,0,0,1,0],
+    [0,1,1,1,0,0,0,0,1,1,1,2,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,5,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 2: Garden Path ---
+{
+  name: "Level 2", title: "Garden Path", difficulty: 1,
+  desc: "Collect hearts for extra lives!",
+  lives: 5, monsterSpeed: 0,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [4,1,1,2,1,1,0,1,1,1,2,1,1,1,0],
+    [0,0,0,0,0,1,0,1,0,0,0,0,0,1,0],
+    [0,1,1,1,0,1,0,1,0,1,1,1,0,1,0],
+    [0,1,0,1,0,1,1,1,0,1,0,2,0,1,0],
+    [0,1,0,1,0,0,0,0,0,1,0,0,0,1,0],
+    [0,1,0,1,1,1,2,1,9,1,0,0,0,1,0],
+    [0,1,0,0,0,0,0,0,0,0,0,10,1,1,0],
+    [0,1,1,1,1,1,1,2,1,1,1,1,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,5,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 3: Watch Your Step (introduces fire) ---
+{
+  name: "Level 3", title: "Watch Your Step", difficulty: 2,
+  desc: "Fire burns! Walking through fire costs 1 heart.",
+  lives: 5, monsterSpeed: 0,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,1,6,1,1,0,0,1,1,1,1,1,0],
+    [0,0,0,0,0,0,1,0,0,1,0,0,0,1,0],
+    [0,1,1,2,1,0,1,0,0,1,0,0,0,1,0],
+    [0,1,0,0,1,0,1,1,6,1,0,0,0,1,0],
+    [0,1,0,0,1,0,0,0,0,0,0,1,2,1,0],
+    [0,1,6,1,1,1,2,1,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,0,1,0,1,1,1,0,0,0],
+    [0,0,0,10,1,6,1,1,0,1,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,1,1,2,1,5,0],
+    [0,0,0,1,1,2,1,9,1,1,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 4: Monster Meet (introduces purple monster, 2 dmg) ---
+{
+  name: "Level 4", title: "Monster Meet", difficulty: 3,
+  desc: "Purple slimes patrol the corridors. They deal 2 hearts of damage!",
+  lives: 6, monsterSpeed: 20,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,1,1,0,1,1,2,1,1,0,1,1,1,0],
+    [0,0,0,0,1,0,1,0,0,0,1,0,0,0,1,0],
+    [0,10,1,0,1,0,1,0,0,0,1,1,1,0,1,0],
+    [0,1,0,0,1,1,1,3,1,0,0,0,1,0,1,0],
+    [0,2,0,0,0,0,0,0,1,0,0,0,1,0,1,0],
+    [0,1,0,0,1,9,1,0,1,1,2,0,1,1,1,0],
+    [0,1,0,0,1,0,1,0,1,0,0,0,0,0,0,0],
+    [0,1,1,6,1,0,1,0,1,1,1,6,1,1,1,0],
+    [0,0,0,0,0,0,2,0,0,0,0,0,0,0,1,0],
+    [0,0,0,0,0,0,1,1,1,1,1,2,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 5: The Crossroads (purple monsters + fire) ---
+{
+  name: "Level 5", title: "The Crossroads", difficulty: 4,
+  desc: "Multiple paths. Purple slimes (2 dmg) guard key junctions.",
+  lives: 5, monsterSpeed: 16,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,1,0,1,1,2,1,1,0,0,1,1,2,1,1,0],
+    [0,0,0,1,0,1,0,0,0,1,0,0,1,0,0,0,1,0],
+    [0,0,0,1,1,1,0,0,0,1,1,6,1,0,0,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0],
+    [0,1,1,1,2,1,1,0,0,1,1,3,1,1,1,0,1,0],
+    [0,1,0,0,0,0,1,0,0,1,0,0,0,0,1,0,1,0],
+    [0,1,0,0,0,0,10,6,1,1,0,0,0,0,2,0,1,0],
+    [0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0],
+    [0,1,9,1,0,1,1,1,0,1,1,6,1,1,1,0,1,0],
+    [0,0,0,1,0,1,0,1,0,1,0,0,0,0,0,0,1,0],
+    [0,0,0,1,1,1,0,1,3,1,0,1,1,2,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,5,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 6: Dark Tunnels (the original drawing, introduces red monster) ---
+{
+  name: "Level 6", title: "Dark Tunnels", difficulty: 5,
+  desc: "The ancient maze. Red demons (3 dmg) join the purple slimes!",
+  lives: 6, monsterSpeed: 16,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,2,1,1,0,0,0,0,0,0,1,1,5,0],
+    [0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,1,3,0,1,0,0,0,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,1,2,1,1,1,6,1,1,2,1,1,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0,0,0,0,7,0,0,1,0,0,0],
+    [0,0,0,0,1,2,1,0,0,0,0,0,0,1,0,0,1,2,0,0],
+    [0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0],
+    [0,0,0,0,1,0,0,0,0,0,0,0,0,2,0,0,1,0,0,0],
+    [0,1,10,6,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0],
+    [0,1,0,0,0,0,0,0,0,0,0,0,0,0,6,1,1,1,0,0],
+    [4,1,0,0,0,0,0,1,1,3,1,1,2,1,1,0,0,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0],
+    [0,1,1,9,2,1,1,1,0,0,0,0,0,0,1,0,0,1,2,0],
+    [0,0,0,0,0,0,0,1,2,0,0,0,7,1,1,0,0,1,0,0],
+    [0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,1,1,2,1,6,1,1,1,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 7: Serpent's Lair (hard, red monsters, tight corridors) ---
+{
+  name: "Level 7", title: "Serpent's Lair", difficulty: 6,
+  desc: "Winding corridors. Red demons (3 dmg) move fast!",
+  lives: 5, monsterSpeed: 12,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [4,1,1,1,1,6,1,1,1,1,1,2,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+    [0,1,1,1,3,1,1,1,2,1,1,6,1,1,1,1,10,1,1,0],
+    [0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0],
+    [0,1,0,1,1,1,1,2,1,1,6,1,1,7,1,0,1,0,1,0],
+    [0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,1,0],
+    [0,1,0,1,0,1,1,6,1,1,1,2,1,0,1,0,1,0,1,0],
+    [0,1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,1,0,1,0],
+    [0,1,0,1,0,1,0,1,1,7,1,0,1,0,1,0,2,0,1,0],
+    [0,1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,0,0,1,0],
+    [0,1,0,1,0,1,0,5,0,0,1,0,1,0,1,0,1,1,1,0],
+    [0,2,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1,0,0,0],
+    [0,0,0,1,0,0,0,0,0,0,0,0,1,0,6,0,1,0,0,0],
+    [0,1,9,1,1,1,6,1,2,1,1,1,1,1,1,1,1,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 8: Monster Den (hard, introduces black monster) ---
+{
+  name: "Level 8", title: "Monster Den", difficulty: 7,
+  desc: "Dark shadows appear! They deal a deadly 4 hearts of damage!",
+  lives: 6, monsterSpeed: 10,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,1,6,10,1,0,1,1,2,1,1,0,1,1,6,1,1,0],
+    [0,0,0,0,0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0],
+    [0,1,1,3,1,0,1,0,1,0,0,0,1,0,1,7,1,0,1,0],
+    [0,1,0,0,1,0,1,0,1,1,3,1,1,0,0,0,1,0,1,0],
+    [0,2,0,0,1,0,1,0,1,0,0,0,0,0,0,0,1,0,1,0],
+    [0,1,0,0,1,6,1,1,1,0,0,1,1,1,6,1,1,0,1,0],
+    [0,1,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,0],
+    [0,1,1,2,1,0,0,0,1,0,0,1,0,0,1,1,2,1,1,0],
+    [0,0,0,0,1,0,0,0,1,1,8,1,0,0,1,0,0,0,0,0],
+    [0,9,6,0,1,1,1,0,0,0,0,0,0,0,1,0,1,1,1,0],
+    [0,1,0,0,0,0,1,0,1,1,1,6,1,0,1,0,1,0,0,0],
+    [0,1,0,0,0,0,1,7,1,0,0,0,1,0,1,3,1,0,0,0],
+    [0,1,1,2,1,1,1,0,0,0,0,0,1,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0,2,1,1,1,1,1,1,2,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 9: The Gauntlet (very hard, all monster types) ---
+{
+  name: "Level 9", title: "The Gauntlet", difficulty: 8,
+  desc: "All three monster types! Purple (2), Red (3), Black (4) damage.",
+  lives: 7, monsterSpeed: 10,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,6,1,1,1,1,1,2,1,1,6,1,1,1,1,1,2,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+    [0,1,1,3,1,1,6,1,2,1,1,0,1,1,7,1,1,6,1,0,1,0],
+    [0,1,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,1,0,1,0],
+    [0,1,0,0,1,1,1,6,1,0,1,0,1,0,1,1,8,0,1,0,1,0],
+    [0,2,0,0,1,0,0,0,1,0,1,1,1,0,1,0,0,0,1,0,1,0],
+    [0,1,0,0,1,0,0,0,1,0,0,0,0,0,1,0,0,0,2,0,1,0],
+    [0,1,6,1,1,0,0,0,1,1,7,1,1,6,1,0,1,1,1,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0],
+    [0,1,1,6,1,1,3,1,2,1,1,6,1,1,1,1,1,0,0,0,1,0],
+    [0,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0],
+    [0,1,0,0,1,1,6,1,1,7,1,1,0,1,1,8,1,6,1,1,1,0],
+    [0,1,0,0,1,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0],
+    [0,1,9,6,1,0,0,0,0,0,0,1,2,1,1,1,1,7,1,2,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,6,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+// --- LEVEL 10: The Final Maze (extreme, all monster types, massive) ---
+{
+  name: "Level 10", title: "The Final Maze", difficulty: 10,
+  desc: "The ultimate challenge. All monsters. Many fires. Stay brave!",
+  lives: 8, monsterSpeed: 15,
+  map: [
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+    [0,4,1,1,6,1,1,0,1,1,2,1,6,1,0,0,1,1,1,6,1,1,1,0],
+    [0,0,0,0,0,0,1,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0],
+    [0,1,1,3,1,0,1,0,1,0,0,0,0,1,1,7,1,0,0,1,1,0,1,0],
+    [0,1,0,0,1,0,1,6,1,1,3,1,0,0,0,0,0,0,0,10,0,0,1,0],
+    [0,1,0,0,1,0,0,0,0,0,0,1,0,0,1,1,6,1,1,1,0,0,1,0],
+    [0,2,0,0,1,1,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,1,0],
+    [0,1,0,0,0,0,1,0,1,1,6,1,0,0,1,0,0,1,1,7,1,2,1,0],
+    [0,1,6,1,1,0,1,0,1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
+    [0,0,0,0,1,0,1,3,1,0,0,0,1,1,1,6,0,1,0,0,0,0,0,0],
+    [0,1,2,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1,1,6,1,1,1,0],
+    [0,1,0,0,1,1,1,6,1,1,7,1,1,0,1,1,0,0,0,0,0,0,1,0],
+    [0,9,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,1,3,1,0,1,0],
+    [0,1,1,6,1,0,0,1,1,1,7,1,6,1,1,0,0,1,0,0,2,0,1,0],
+    [0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0],
+    [0,0,0,0,1,0,0,1,0,0,1,1,6,1,1,8,1,1,6,1,1,1,1,0],
+    [0,0,0,0,1,0,0,2,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,1,6,1,1,0,1,0,0,1,1,3,1,6,1,2,1,1,1,0],
+    [0,0,0,0,0,0,0,0,1,0,1,0,0,1,0,0,0,0,0,0,0,0,1,0],
+    [0,0,0,0,0,0,0,0,1,2,1,0,0,1,1,6,1,1,1,7,1,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,5,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  ]
+},
+
+];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let currentLevel = 0;
+let unlockedLevels = [true];
+let completedLevels = new Set();
+let COLS = 0, ROWS = 0, TILE = 32;
+let maze = [];
+let player = { x: 0, y: 0, dx: 0, dy: 0 };
+let hearts = 0, totalHearts = 0, lives = 3, maxLivesEver = 3, time = 0;
+let timerInterval = null;
+let gameOver = false;
+let monsters = [], fires = [];
+// Particle Object Pool — pre-allocated to avoid GC spikes
+const PARTICLE_POOL_SIZE = 200;
+const particlePool = [];
+let activeParticles = 0;
+for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+  particlePool.push({x:0,y:0,vx:0,vy:0,gravity:0,life:0,maxLife:0,color:'',color2:null,size:0});
+}
+let animFrame = 0;
+let invincible = 0; // invincibility frames remaining after taking damage
+let hasKey = false;
+let paused = false;
+let soundEnabled = true;
+let coins = 0, totalCoins = 0, combo = 0, comboTimer = 0, maxCombo = 0;
+let floatingTexts = []; // {x, y, text, color, life, vy}
+
+// Abilities: unlock at levels 3, 5, 7
+const ABILITIES = {
+  dash:   { key: 'Space', cooldown: 300, duration: 0,   unlockLevel: 2, color: '#3498db', label: 'Dash' },
+  shield: { key: 'Shift', cooldown: 600, duration: 240, unlockLevel: 4, color: '#27ae60', label: 'Shield' },
+  freeze: { key: 'F',     cooldown: 900, duration: 180, unlockLevel: 6, color: '#00bcd4', label: 'Freeze' },
+};
+let abilityState = { dash: 0, shield: 0, freeze: 0 }; // cooldown remaining
+let shieldActive = 0, shieldHits = 0;
+let freezeActive = 0;
+let screenShake = 0;
+let freezeWave = null; // {cx, cy, radius, maxRadius, life} expanding ring effect
+let playerTrail = []; // [{x, y}] last positions
+let fadeAlpha = 0, fadeDir = 0, fadeCallback = null; // transition system
+let deathCounts = {}; // per-level death counter for adaptive hints
+let showingHint = false;
+let dyingMonsters = []; // {x, y, type, scale, life} for death animations
+let damageTaken = 0; // track total damage for no-damage bonus
+let levelEntryAnim = 0; // countdown for tile slide-in animation (60 frames = 1s)
+
+// Cosmetic player colors - unlocked at total coin milestones
+const PLAYER_COLORS = [
+  { threshold: 0,   color: '#3498db', stroke: '#2980b9', name: 'Blue (Default)' },
+  { threshold: 50,  color: '#e74c3c', stroke: '#c0392b', name: 'Red' },
+  { threshold: 150, color: '#2ecc71', stroke: '#27ae60', name: 'Green' },
+  { threshold: 300, color: '#f39c12', stroke: '#d68910', name: 'Gold' },
+  { threshold: 500, color: '#9b59b6', stroke: '#8e44ad', name: 'Purple' },
+  { threshold: 800, color: '#1abc9c', stroke: '#16a085', name: 'Teal' },
+  { threshold: 1200,color: '#e91e63', stroke: '#c2185b', name: 'Pink' },
+  { threshold: 2000,color: '#fff',    stroke: '#ccc',    name: 'Diamond' },
+];
+let selectedColorIdx = 0;
+
+function getPlayerColor() { return PLAYER_COLORS[selectedColorIdx]; }
+function getTotalCoins() { try { return parseInt(localStorage.getItem('mazeTotalCoins')) || 0; } catch(e) { return 0; } }
+function getUnlockedColors() { const t = getTotalCoins(); return PLAYER_COLORS.filter(c => c.threshold <= t); }
+
+try {
+  selectedColorIdx = parseInt(localStorage.getItem('mazePlayerColor')) || 0;
+} catch(e) {}
+
+// ============================================================
+// SOUND ENGINE (Web Audio API - procedural, no files needed)
+// ============================================================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function playTone(freq, dur, type, vol, ramp) {
+  if (!soundEnabled) return;
+  ensureAudio();
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, audioCtx.currentTime);
+  if (ramp) o.frequency.linearRampToValueAtTime(ramp, audioCtx.currentTime + dur);
+  g.gain.setValueAtTime(vol || 0.15, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + dur);
+}
+
+function playNoise(dur, vol) {
+  if (!soundEnabled) return;
+  ensureAudio();
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(vol || 0.06, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  src.connect(g); g.connect(audioCtx.destination);
+  src.start(); src.stop(audioCtx.currentTime + dur);
+}
+
+const SFX = {
+  move()    { playTone(200, 0.05, 'square', 0.04); },
+  pickup()  { playTone(600, 0.12, 'sine', 0.12, 900); },
+  heart()   { playTone(440, 0.1, 'sine', 0.1); playTone(660, 0.15, 'sine', 0.1); },
+  key()     { playTone(520, 0.1, 'triangle', 0.12); setTimeout(() => playTone(660, 0.1, 'triangle', 0.12), 80); setTimeout(() => playTone(880, 0.2, 'triangle', 0.12), 160); },
+  treasure(){ playTone(440, 0.08, 'sine', 0.1); setTimeout(() => playTone(554, 0.08, 'sine', 0.1), 70); setTimeout(() => playTone(660, 0.08, 'sine', 0.1), 140); setTimeout(() => playTone(880, 0.25, 'sine', 0.12), 210); },
+  damage()  { playTone(150, 0.2, 'sawtooth', 0.12, 80); playNoise(0.15, 0.08); },
+  fire()    { playNoise(0.2, 0.06); playTone(120, 0.15, 'sawtooth', 0.06); },
+  locked()  { playTone(200, 0.1, 'square', 0.08); playTone(150, 0.15, 'square', 0.08); },
+  exit()    { playTone(523, 0.12, 'sine', 0.1); setTimeout(() => playTone(659, 0.12, 'sine', 0.1), 100); setTimeout(() => playTone(784, 0.12, 'sine', 0.1), 200); setTimeout(() => playTone(1047, 0.3, 'sine', 0.12), 300); },
+  death()   { playTone(400, 0.15, 'sawtooth', 0.1, 200); setTimeout(() => playTone(250, 0.15, 'sawtooth', 0.08, 120), 150); setTimeout(() => playTone(150, 0.3, 'sawtooth', 0.06, 60), 300); },
+  combo(n)  { playTone(600 + n*100, 0.08, 'triangle', 0.1); },
+  monsterKill() { playTone(300, 0.08, 'sine', 0.1, 100); playNoise(0.1, 0.08); playTone(180, 0.12, 'square', 0.06, 80); },
+};
+
+// ============================================================
+// EVENT SUBSCRIPTIONS - Audio and visual effects listen to game events
+// ============================================================
+GameEvents.on('playerMove', () => SFX.move());
+GameEvents.on('coinPickup', (d) => { if (d.combo > 1) SFX.combo(Math.min(d.combo, 8)); else SFX.pickup(); });
+GameEvents.on('heartPickup', () => SFX.heart());
+GameEvents.on('keyPickup', () => SFX.key());
+GameEvents.on('treasurePickup', () => SFX.treasure());
+GameEvents.on('damage', (d) => { if (d.lethal) SFX.death(); else SFX.damage(); });
+GameEvents.on('fireBurn', () => SFX.fire());
+GameEvents.on('exitLocked', () => SFX.locked());
+GameEvents.on('levelComplete', () => SFX.exit());
+GameEvents.on('monsterKill', () => SFX.monsterKill());
+GameEvents.on('shieldBlock', () => playTone(500, 0.1, 'triangle', 0.08));
+GameEvents.on('abilityDash', () => playTone(800, 0.15, 'sine', 0.1, 400));
+GameEvents.on('abilityShield', () => { playTone(400, 0.2, 'sine', 0.08); playTone(600, 0.2, 'sine', 0.06); });
+GameEvents.on('abilityFreeze', () => { playTone(1200, 0.1, 'triangle', 0.08); playTone(1600, 0.15, 'triangle', 0.08); });
+
+try {
+  const saved = JSON.parse(localStorage.getItem('mazeProgress'));
+  if (saved) {
+    unlockedLevels = saved.unlocked || [true];
+    completedLevels = new Set(saved.completed || []);
+  }
+} catch(e) {}
+
+function saveProgress() {
+  try {
+    localStorage.setItem('mazeProgress', JSON.stringify({
+      unlocked: unlockedLevels, completed: [...completedLevels]
+    }));
+  } catch(e) {}
+}
+
+// ============================================================
+// RESPONSIVE CANVAS SIZING
+// ============================================================
+function resizeCanvas() {
+  if (!COLS || !ROWS) return;
+  const gameArea = document.getElementById('game-area');
+  const maxW = gameArea.clientWidth - 8;
+  const maxH = gameArea.clientHeight - 8;
+  TILE = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+  if (TILE < 8) TILE = 8;
+  canvas.width = COLS * TILE;
+  canvas.height = ROWS * TILE;
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ============================================================
+// LEVEL SELECT
+// ============================================================
+function buildLevelSelect() {
+  const grid = document.getElementById('level-select-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < LEVELS.length; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'level-btn';
+    if (!unlockedLevels[i]) btn.classList.add('locked');
+    if (completedLevels.has(i)) btn.classList.add('completed');
+    const num = document.createElement('div');
+    num.textContent = i + 1;
+    btn.appendChild(num);
+    const lbl = document.createElement('div');
+    lbl.className = 'lbl';
+    lbl.textContent = completedLevels.has(i) ? '★' : (unlockedLevels[i] ? getDiffLabel(LEVELS[i].difficulty) : '🔒');
+    btn.appendChild(lbl);
+    if (unlockedLevels[i]) {
+      btn.onclick = () => { currentLevel = i; showLevelIntro(); };
+    }
+    grid.appendChild(btn);
+  }
+  const completed = completedLevels.size;
+  document.getElementById('progress-fill').style.width = (completed / LEVELS.length * 100) + '%';
+  document.getElementById('progress-text').textContent = completed + ' / ' + LEVELS.length + ' completed';
+
+  // Build color picker
+  const tc = getTotalCoins();
+  const picker = document.getElementById('color-picker');
+  picker.innerHTML = '';
+  PLAYER_COLORS.forEach((pc, idx) => {
+    const swatch = document.createElement('div');
+    swatch.className = 'color-swatch';
+    swatch.style.background = pc.color;
+    if (pc.color === '#fff') swatch.style.background = 'linear-gradient(135deg, #fff, #ddd)';
+    const unlocked = pc.threshold <= tc;
+    if (!unlocked) swatch.classList.add('locked-color');
+    if (idx === selectedColorIdx) swatch.classList.add('selected');
+    swatch.title = unlocked ? pc.name : pc.name + ' (Need ' + pc.threshold + ' total coins)';
+    if (unlocked) {
+      swatch.onclick = () => {
+        selectedColorIdx = idx;
+        try { localStorage.setItem('mazePlayerColor', idx); } catch(e) {}
+        buildLevelSelect(); // refresh to update selection
+      };
+    }
+    picker.appendChild(swatch);
+  });
+  document.getElementById('total-coins-text').textContent = 'Total coins collected: ' + tc;
+}
+
+function getDiffLabel(d) {
+  if (d <= 2) return 'Easy'; if (d <= 4) return 'Medium';
+  if (d <= 6) return 'Hard'; if (d <= 8) return 'V.Hard'; return 'Extreme';
+}
+function getDiffStars(d) {
+  const full = Math.ceil(d / 2);
+  return '★'.repeat(full) + '☆'.repeat(5 - full);
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  updateSoundButtons();
+}
+function updateSoundButtons() {
+  const txt = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+  const el1 = document.getElementById('sound-toggle');
+  const el2 = document.getElementById('pause-sound-toggle');
+  if (el1) el1.textContent = txt;
+  if (el2) el2.textContent = txt;
+}
+
+function showTitleScreen(skipFade) {
+  const doIt = () => {
+    hideAllOverlays();
+    paused = false;
+    buildLevelSelect();
+    document.getElementById('title-screen').classList.add('show');
+    document.getElementById('pause-btn').style.display = 'none';
+    document.getElementById('ability-bar').style.display = 'none';
+    if (timerInterval) clearInterval(timerInterval);
+    // Clear any held D-pad input
+    if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+    dpadDir = null;
+  };
+  if (skipFade) doIt(); else fadeTransition(doIt);
+}
+
+function showLevelIntro() {
+  fadeTransition(() => { _showLevelIntro(); });
+}
+function _showLevelIntro() {
+  hideAllOverlays();
+  const lvl = LEVELS[currentLevel];
+  document.getElementById('intro-level-name').textContent = lvl.name;
+  document.getElementById('intro-level-title').textContent = lvl.title;
+  document.getElementById('intro-difficulty').innerHTML =
+    'Difficulty: <span class="stars">' + getDiffStars(lvl.difficulty) + '</span> ' +
+    '| <span style="color:#e94560;">' + '&#9829;'.repeat(lvl.lives) + '</span>';
+  document.getElementById('intro-desc').textContent = lvl.desc;
+
+  // Build legend based on what's in the level
+  const map = lvl.map;
+  const flat = map.flat();
+  const legend = document.getElementById('intro-legend');
+  legend.innerHTML = '';
+  const addRow = (color, text) => {
+    legend.innerHTML += `<div class="legend-row"><span class="legend-dot" style="background:${color}"></span>${text}</div>`;
+  };
+  addRow('#ffd700', 'Key — find it to unlock the exit!');
+  if (flat.includes(6)) addRow('#ff6600', 'Fire — costs 1 heart');
+  if (flat.includes(3)) addRow('#9b59b6', 'Purple Slime — costs 2 hearts');
+  if (flat.includes(7)) addRow('#e74c3c', 'Red Demon — costs 3 hearts');
+  if (flat.includes(8)) addRow('#2c2c2c', 'Dark Shadow — costs 4 hearts');
+  if (flat.includes(2)) addRow('#e94560', 'Heart — gives +1 life');
+  if (flat.includes(10)) addRow('#8B4513', 'Treasure Box — gives +15 lives!');
+  addRow('#ffd700', 'Coins — collect for score + combo!');
+  // Show newly unlocked abilities
+  if (currentLevel === ABILITIES.dash.unlockLevel)   addRow(ABILITIES.dash.color,   'NEW: Dash ability unlocked! (Space)');
+  if (currentLevel === ABILITIES.shield.unlockLevel)  addRow(ABILITIES.shield.color, 'NEW: Shield ability unlocked! (Shift)');
+  if (currentLevel === ABILITIES.freeze.unlockLevel)  addRow(ABILITIES.freeze.color, 'NEW: Freeze ability unlocked! (F)');
+
+  document.getElementById('level-intro').classList.add('show');
+}
+
+function hideAllOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('show'));
+}
+
+// ============================================================
+// LIVES & KEY DISPLAY
+// ============================================================
+function updateLivesDisplay() {
+  const c = document.getElementById('lives-display');
+  let html = '';
+  for (let i = 0; i < lives; i++) {
+    html += '<span class="heart-icon">&#9829;</span>';
+  }
+  c.innerHTML = html;
+}
+
+function updateCoinDisplay() {
+  document.getElementById('coin-display').textContent = coins + '/' + totalCoins;
+  const cd = document.getElementById('combo-display');
+  if (combo > 1) { cd.style.display = ''; cd.textContent = 'x' + combo; }
+  else { cd.style.display = 'none'; }
+}
+
+function addFloatingText(x, y, text, color) {
+  floatingTexts.push({ x: x*TILE+TILE/2, y: y*TILE, text, color, life: 50, vy: -1.5 });
+}
+
+function updateFloatingTexts() {
+  for (let i = floatingTexts.length-1; i >= 0; i--) {
+    let t = floatingTexts[i];
+    t.y += t.vy;
+    t.life--;
+    if (t.life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+function drawFloatingTexts() {
+  for (let t of floatingTexts) {
+    ctx.globalAlpha = Math.max(0, t.life / 50);
+    ctx.fillStyle = t.color;
+    ctx.font = `bold ${Math.max(8, TILE*0.35)}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(t.text, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function updateKeyDisplay() {
+  const el = document.getElementById('key-status');
+  if (hasKey) {
+    el.classList.add('has-key');
+    el.innerHTML = '&#128273;';
+  } else {
+    el.classList.remove('has-key');
+    el.innerHTML = '&#128477;';
+  }
+}
+
+// ============================================================
+// INIT LEVEL
+// ============================================================
+function startCurrentLevel() {
+  ensureAudio();
+  hideAllOverlays();
+  const lvl = LEVELS[currentLevel];
+  const map = lvl.map;
+  ROWS = map.length;
+  COLS = map[0].length;
+  resizeCanvas();
+
+  maze = map.map(row => [...row]);
+  hearts = 0; totalHearts = 0;
+  lives = lvl.lives; maxLivesEver = lvl.lives;
+  time = 0; gameOver = false; invincible = 0; hasKey = false; paused = false;
+  coins = 0; totalCoins = 0; combo = 0; comboTimer = 0; maxCombo = 0;
+  floatingTexts = [];
+  abilityState = { dash: 0, shield: 0, freeze: 0 };
+  shieldActive = 0; shieldHits = 0; freezeActive = 0; freezeWave = null;
+  screenShake = 0; playerTrail = []; dyingMonsters = []; damageTaken = 0;
+  // Clear any held D-pad input to prevent bleed from previous scene
+  if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+  dpadDir = null;
+  levelEntryAnim = 40; // ~0.7s of tile slide-in
+  document.getElementById('pause-btn').style.display = 'flex';
+  document.getElementById('ability-bar').style.display = 'flex';
+  updateAbilityBar();
+  monsters = []; fires = []; activeParticles = 0;
+  player.dx = 0; player.dy = 0;
+
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const v = maze[r][c];
+      if (v === 4) { player.x = c; player.y = r; maze[r][c] = 1; }
+      if (v === 2) totalHearts++;
+      if (v === 3 || v === 7 || v === 8) {
+        monsters.push({
+          x: c, y: r, origX: c, origY: r, type: v,
+          dir: 1, axis: findMonsterAxis(map, r, c), timer: 0,
+          state: v === 8 ? 'lurk' : 'patrol', stateTimer: 0,
+          chaseTimer: 0, restTimer: 0, teleportTimer: 0
+        });
+        maze[r][c] = 1;
+      }
+      if (v === 6) {
+        fires.push({ x: c, y: r, active: true, cooldown: 0 });
+        maze[r][c] = 1;
+      }
+    }
+  }
+
+  // Scatter coins on empty path tiles (~35% coverage)
+  const rng = (() => { let s = currentLevel * 9973 + 42; return () => { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; }; })();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (maze[r][c] === 1 && rng() < 0.35) {
+        maze[r][c] = 11; // coin
+        totalCoins++;
+      }
+    }
+  }
+
+  document.getElementById('level-label').textContent = (currentLevel + 1);
+  updateLivesDisplay();
+  updateKeyDisplay();
+  updateCoinDisplay();
+  document.getElementById('timer').textContent = time;
+
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (!gameOver && !paused) { time++; document.getElementById('timer').textContent = time; }
+  }, 1000);
+}
+
+function findMonsterAxis(map, r, c) {
+  let h = 0, v = 0;
+  const rows = map.length, cols = map[0].length;
+  for (let i = -1; i <= 1; i += 2) {
+    if (c+i >= 0 && c+i < cols && map[r][c+i] !== 0) h++;
+    if (r+i >= 0 && r+i < rows && map[r+i] && map[r+i][c] !== 0) v++;
+  }
+  return h >= v ? 'h' : 'v';
+}
+
+// ============================================================
+// GAME LOGIC
+// ============================================================
+function distToPlayer(m) {
+  return Math.abs(m.x - player.x) + Math.abs(m.y - player.y);
+}
+
+function bfsStep(fromX, fromY, toX, toY) {
+  // Returns {dx, dy} for next step toward target, or null
+  if (fromX === toX && fromY === toY) return null;
+  const visited = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+  const queue = [[toX, toY]];
+  visited[toY][toX] = 1;
+  const parent = {};
+  while (queue.length) {
+    const [cx, cy] = queue.shift();
+    for (const [dx, dy] of [[0,-1],[0,1],[-1,0],[1,0]]) {
+      const nx = cx+dx, ny = cy+dy;
+      if (nx<0||nx>=COLS||ny<0||ny>=ROWS) continue;
+      if (visited[ny][nx]) continue;
+      if (maze[ny][nx] === 0) continue;
+      visited[ny][nx] = 1;
+      parent[ny+','+nx] = [cx, cy];
+      if (nx === fromX && ny === fromY) {
+        // Trace back one step
+        const [px, py] = parent[fromY+','+fromX] || [toX, toY];
+        return { dx: px - fromX, dy: py - fromY };
+      }
+      queue.push([nx, ny]);
+    }
+  }
+  return null;
+}
+
+function findRandomPathNear(cx, cy, range) {
+  const candidates = [];
+  for (let r = Math.max(0, cy-range); r < Math.min(ROWS, cy+range); r++) {
+    for (let c = Math.max(0, cx-range); c < Math.min(COLS, cx+range); c++) {
+      if (maze[r][c] !== 0 && maze[r][c] !== 5 && !(c === cx && r === cy)) {
+        candidates.push([c, r]);
+      }
+    }
+  }
+  return candidates.length ? candidates[Math.floor(Math.random()*candidates.length)] : null;
+}
+
+function moveMonsters() {
+  const baseSpeed = LEVELS[currentLevel].monsterSpeed;
+  if (!baseSpeed) return;
+  for (let m of monsters) {
+    m.timer++;
+    const dist = distToPlayer(m);
+
+    // --- PURPLE SLIME: Patrol + Alert ---
+    if (m.type === 3) {
+      const alertRange = 4;
+      if (m.state === 'patrol' && dist <= alertRange) {
+        m.state = 'alert'; m.stateTimer = 120; // ~2 sec at 60fps
+      }
+      if (m.state === 'alert') {
+        m.stateTimer--;
+        if (m.stateTimer <= 0 || dist > alertRange + 2) { m.state = 'patrol'; }
+      }
+      const speed = m.state === 'alert' ? Math.max(4, Math.floor(baseSpeed * 0.5)) : baseSpeed;
+      if (m.timer < speed) continue;
+      m.timer = 0;
+      // Patrol: back and forth
+      let nx, ny;
+      if (m.axis === 'h') { nx = m.x + m.dir; ny = m.y; }
+      else { nx = m.x; ny = m.y + m.dir; }
+      if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || maze[ny][nx] === 0) {
+        m.dir *= -1;
+      } else { m.x = nx; m.y = ny; }
+    }
+
+    // --- RED DEMON: Patrol + Chase + Rest ---
+    else if (m.type === 7) {
+      const chaseRange = 5;
+      if (m.state === 'patrol' && dist <= chaseRange) {
+        m.state = 'chase'; m.chaseTimer = 240; // ~4 sec
+      }
+      if (m.state === 'chase') {
+        m.chaseTimer--;
+        if (m.chaseTimer <= 0) { m.state = 'rest'; m.restTimer = 120; } // ~2 sec rest
+        if (dist > chaseRange + 3) { m.state = 'patrol'; }
+      }
+      if (m.state === 'rest') {
+        m.restTimer--;
+        if (m.restTimer <= 0) { m.state = 'patrol'; }
+        continue; // Don't move while resting
+      }
+
+      const speed = m.state === 'chase' ? Math.max(4, Math.floor(baseSpeed * 0.6)) : baseSpeed;
+      if (m.timer < speed) continue;
+      m.timer = 0;
+
+      if (m.state === 'chase') {
+        const step = bfsStep(m.x, m.y, player.x, player.y);
+        if (step) {
+          const nx = m.x + step.dx, ny = m.y + step.dy;
+          if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && maze[ny][nx] !== 0) {
+            m.x = nx; m.y = ny;
+          }
+        }
+      } else {
+        // Patrol: back and forth
+        let nx, ny;
+        if (m.axis === 'h') { nx = m.x + m.dir; ny = m.y; }
+        else { nx = m.x; ny = m.y + m.dir; }
+        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || maze[ny][nx] === 0) {
+          m.dir *= -1;
+        } else { m.x = nx; m.y = ny; }
+      }
+    }
+
+    // --- DARK SHADOW: Lurk + Ambush + Teleport ---
+    else if (m.type === 8) {
+      m.teleportTimer++;
+      const ambushRange = 3;
+
+      if (m.state === 'lurk') {
+        if (dist <= ambushRange) { m.state = 'ambush'; m.stateTimer = 180; }
+        // Teleport every ~8 seconds if player is within 8 tiles
+        if (m.teleportTimer > 480 && dist <= 8) {
+          const pos = findRandomPathNear(player.x, player.y, 4);
+          if (pos) {
+            addParticles(m.x, m.y, '#2c2c2c', 10);
+            m.x = pos[0]; m.y = pos[1];
+            addParticles(m.x, m.y, '#2c2c2c', 10);
+          }
+          m.teleportTimer = 0;
+        }
+        continue; // Lurk = don't move
+      }
+
+      if (m.state === 'ambush') {
+        m.stateTimer--;
+        if (m.stateTimer <= 0 || dist > ambushRange + 3) {
+          m.state = 'lurk'; m.teleportTimer = 0;
+          continue;
+        }
+        // Charge toward player fast
+        const speed = Math.max(3, Math.floor(baseSpeed * 0.4));
+        if (m.timer < speed) continue;
+        m.timer = 0;
+        const step = bfsStep(m.x, m.y, player.x, player.y);
+        if (step) {
+          const nx = m.x + step.dx, ny = m.y + step.dy;
+          if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && maze[ny][nx] !== 0) {
+            m.x = nx; m.y = ny;
+          }
+        }
+      }
+    }
+  }
+}
+
+function addParticles(x, y, color, count, opts) {
+  const o = opts || {};
+  for (let i = 0; i < count; i++) {
+    if (activeParticles >= PARTICLE_POOL_SIZE) return; // pool exhausted
+    const p = particlePool[activeParticles++];
+    const angle = o.angle != null ? o.angle + (Math.random()-0.5)*o.spread : Math.random()*Math.PI*2;
+    const speed = o.speed || (2 + Math.random()*3);
+    p.x = x*TILE+TILE/2; p.y = y*TILE+TILE/2;
+    p.vx = Math.cos(angle)*speed*(0.5+Math.random());
+    p.vy = Math.sin(angle)*speed*(0.5+Math.random());
+    p.gravity = o.gravity || 0.06;
+    p.life = 25+Math.random()*20; p.maxLife = 45;
+    p.color = color; p.color2 = o.color2 || null;
+    p.size = o.size || (2+Math.random()*4);
+  }
+}
+
+function updateParticles() {
+  for (let i = activeParticles - 1; i >= 0; i--) {
+    let p = particlePool[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vy += p.gravity; // gravity pulls down
+    p.vx *= 0.98; // air friction
+    p.life--; p.size *= 0.96;
+    if (p.life <= 0 || p.size < 0.3) {
+      // Swap with last active particle and shrink active range
+      activeParticles--;
+      const last = particlePool[activeParticles];
+      particlePool[activeParticles] = p;
+      particlePool[i] = last;
+    }
+  }
+}
+
+function takeDamage(amount, deathMsg) {
+  if (gameOver || invincible > 0) return;
+  // Shield absorbs hits
+  if (shieldActive > 0 && shieldHits > 0) {
+    shieldHits--;
+    addParticles(player.x, player.y, '#27ae60', 12);
+    addFloatingText(player.x, player.y, 'BLOCKED!', '#27ae60');
+    GameEvents.emit('shieldBlock');
+    invincible = 30;
+    if (shieldHits <= 0) shieldActive = 0;
+    return;
+  }
+  lives -= amount;
+  if (lives < 0) lives = 0;
+  damageTaken += amount;
+  updateLivesDisplay();
+  screenShake = 12; // ~200ms of shake
+  addFloatingText(player.x, player.y, '-' + amount, '#ff4444');
+  if (lives <= 0) {
+    playerDead(deathMsg);
+  } else {
+    invincible = 60; // ~1 second of invincibility after taking damage
+    GameEvents.emit('damage', {lethal: false});
+  }
+}
+
+function movePlayer(dx, dy) {
+  if (gameOver || paused) return;
+  let nx = player.x + dx, ny = player.y + dy;
+  if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return;
+  if (maze[ny][nx] === 0) return;
+
+  playerTrail.push({x: player.x, y: player.y});
+  if (playerTrail.length > 3) playerTrail.shift();
+  player.x = nx; player.y = ny;
+  player.dx = dx; player.dy = dy;
+  GameEvents.emit('playerMove');
+
+  // Coin pickup
+  if (maze[ny][nx] === 11) {
+    maze[ny][nx] = 1;
+    coins++;
+    if (comboTimer > 0) {
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      GameEvents.emit('coinPickup', {combo});
+      addFloatingText(nx, ny, 'x' + combo, '#ff0');
+    } else {
+      combo = 1;
+      GameEvents.emit('coinPickup', {combo});
+    }
+    comboTimer = 120; // ~2 seconds to maintain combo
+    addParticles(nx, ny, '#ffd700', 6);
+    updateCoinDisplay();
+  }
+
+  // Heart pickup
+  if (maze[ny][nx] === 2) {
+    maze[ny][nx] = 1;
+    hearts++; lives++;
+    if (lives > maxLivesEver) maxLivesEver = lives;
+    updateLivesDisplay();
+    addParticles(nx, ny, '#e94560', 12);
+    GameEvents.emit('heartPickup');
+  }
+
+  // Treasure box pickup
+  if (maze[ny][nx] === 10) {
+    maze[ny][nx] = 1;
+    lives += 15;
+    if (lives > maxLivesEver) maxLivesEver = lives;
+    updateLivesDisplay();
+    addParticles(nx, ny, '#ffd700', 30);
+    addParticles(nx, ny, '#e94560', 20);
+    GameEvents.emit('treasurePickup');
+  }
+
+  // Key pickup
+  if (maze[ny][nx] === 9) {
+    maze[ny][nx] = 1;
+    hasKey = true;
+    updateKeyDisplay();
+    addParticles(nx, ny, '#ffd700', 20);
+    GameEvents.emit('keyPickup');
+  }
+
+  // Exit
+  if (maze[ny][nx] === 5) {
+    if (!hasKey) {
+      // Bounce back - exit is locked
+      player.x -= dx; player.y -= dy;
+      addParticles(nx, ny, '#ff0000', 8);
+      GameEvents.emit('exitLocked');
+      return;
+    }
+    gameOver = true;
+    clearInterval(timerInterval);
+    addParticles(nx, ny, '#00ff88', 30);
+    GameEvents.emit('levelComplete');
+    levelComplete();
+    return;
+  }
+
+  checkFires(nx, ny);
+  checkMonsterCollision();
+}
+
+function checkFires(px, py) {
+  if (gameOver || invincible > 0) return;
+  for (let f of fires) {
+    if (f.x === px && f.y === py && f.active) {
+      addParticles(px, py, '#ff6600', 15);
+      f.active = false;
+      f.cooldown = 180;
+      GameEvents.emit('fireBurn');
+      takeDamage(1, 'Burned by fire!');
+    }
+  }
+}
+
+function checkMonsterCollision() {
+  if (gameOver || invincible > 0) return;
+  for (let i = monsters.length - 1; i >= 0; i--) {
+    let m = monsters[i];
+    if (m.x === player.x && m.y === player.y) {
+      const mt = MONSTER_TYPES[m.type];
+      // Start dying animation instead of instant remove
+      dyingMonsters.push({ x: m.x, y: m.y, type: m.type, scale: 1, life: 20 });
+      GameEvents.emit('monsterKill');
+      monsters.splice(i, 1);
+      // Push player back
+      let bx = player.x - (player.dx||0), by = player.y - (player.dy||0);
+      if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS && maze[by][bx] !== 0) {
+        player.x = bx; player.y = by;
+      }
+      takeDamage(mt.damage, 'Caught by ' + mt.name + '!');
+      return;
+    }
+  }
+}
+
+function updateDyingMonsters() {
+  for (let i = dyingMonsters.length - 1; i >= 0; i--) {
+    let d = dyingMonsters[i];
+    d.life--;
+    d.scale *= 0.88;
+    if (d.life <= 0) {
+      // Final burst of particles
+      const mt = MONSTER_TYPES[d.type];
+      addParticles(d.x, d.y, mt.color, 20);
+      addParticles(d.x, d.y, '#fff', 8);
+      dyingMonsters.splice(i, 1);
+    }
+  }
+}
+
+function drawDyingMonsters() {
+  for (let d of dyingMonsters) {
+    const mt = MONSTER_TYPES[d.type];
+    const x = d.x * TILE + TILE / 2;
+    const y = d.y * TILE + TILE / 2;
+    const rad = TILE * 0.35 * d.scale;
+    ctx.globalAlpha = d.life / 20;
+    // Spinning shrink effect
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate((20 - d.life) * 0.3);
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.fillStyle = mt.color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function playerDead(reason) {
+  gameOver = true;
+  clearInterval(timerInterval);
+  GameEvents.emit('damage', {lethal: true});
+  deathCounts[currentLevel] = (deathCounts[currentLevel] || 0) + 1;
+  setTimeout(() => {
+    document.getElementById('gameover-text').textContent = reason;
+    let stats = 'Hearts: ' + hearts + '/' + totalHearts + ' | Time: ' + time + 's';
+    const deaths = deathCounts[currentLevel] || 0;
+    if (deaths >= 3) {
+      const hints = [
+        'Tip: Collect hearts and the treasure box for extra lives!',
+        'Tip: Wait for monsters to move away before crossing.',
+        'Tip: Fire reactivates after a few seconds — move quickly!',
+      ];
+      if (currentLevel >= ABILITIES.dash.unlockLevel) hints.push('Tip: Use Dash (Space) to zip past dangers!');
+      if (currentLevel >= ABILITIES.shield.unlockLevel) hints.push('Tip: Shield (Shift) absorbs 2 hits!');
+      if (currentLevel >= ABILITIES.freeze.unlockLevel) hints.push('Tip: Freeze (F) stops all monsters!');
+      stats += '\n' + hints[deaths % hints.length];
+    }
+    document.getElementById('gameover-stats').innerHTML = stats.replace('\n', '<br><span style="color:#ffd700;font-size:min(3.5vw,14px);">') + '</span>';
+    document.getElementById('game-over').classList.add('show');
+  }, 400);
+}
+
+function levelComplete() {
+  completedLevels.add(currentLevel);
+  if (currentLevel + 1 < LEVELS.length) unlockedLevels[currentLevel+1] = true;
+  saveProgress();
+
+  // Calculate bonuses
+  const timeThreshold = Math.floor(COLS * ROWS * 0.3);
+  const timeBonus = time <= timeThreshold ? Math.max(0, (timeThreshold - time) * 10) : 0;
+  const noDamageBonus = damageTaken === 0 ? 500 : 0;
+  const allCoinsBonus = (totalCoins > 0 && coins >= totalCoins) ? 300 : 0;
+  const coinScore = coins * 10 * (1 + Math.floor(maxCombo / 3) * 0.1); // combo multiplier
+  const totalScore = Math.floor(coinScore + timeBonus + noDamageBonus + allCoinsBonus);
+
+  // Star rating: 1 = complete, 2 = under time + 50% coins, 3 = all coins + no damage
+  let starCount = 1;
+  if (time <= timeThreshold && coins >= totalCoins * 0.5) starCount++;
+  if (totalCoins > 0 && coins >= totalCoins && damageTaken === 0) starCount++;
+
+  // Track total coins for milestone rewards
+  let savedTotal = 0;
+  try { savedTotal = parseInt(localStorage.getItem('mazeTotalCoins')) || 0; } catch(e) {}
+  savedTotal += coins;
+  try { localStorage.setItem('mazeTotalCoins', savedTotal); } catch(e) {}
+
+  setTimeout(() => {
+    if (currentLevel === LEVELS.length-1 && completedLevels.size === LEVELS.length) {
+      document.getElementById('all-complete').classList.add('show');
+    } else {
+      document.getElementById('complete-title').textContent = LEVELS[currentLevel].name + ' Complete!';
+      let statsHTML = 'Coins: ' + coins + '/' + totalCoins + ' | Best Combo: x' + maxCombo + ' | Time: ' + time + 's';
+      statsHTML += '<br><span style="color:#ffd700;">Score: ' + totalScore + '</span>';
+      let bonusParts = [];
+      if (timeBonus > 0) bonusParts.push('Time +' + timeBonus);
+      if (noDamageBonus > 0) bonusParts.push('No Damage +' + noDamageBonus);
+      if (allCoinsBonus > 0) bonusParts.push('All Coins +' + allCoinsBonus);
+      if (bonusParts.length) statsHTML += '<br><span style="color:#00ff88;font-size:min(3.2vw,13px);">' + bonusParts.join(' | ') + '</span>';
+      document.getElementById('complete-stats').innerHTML = statsHTML;
+      document.getElementById('complete-stars').textContent = '★'.repeat(starCount) + '☆'.repeat(3-starCount);
+      document.getElementById('next-level-btn').style.display = (currentLevel < LEVELS.length-1) ? '' : 'none';
+      document.getElementById('level-complete').classList.add('show');
+    }
+  }, 500);
+}
+
+// ============================================================
+// SCENE TRANSITIONS
+// ============================================================
+function fadeTransition(callback) {
+  fadeDir = 1; // fading in (to black)
+  fadeAlpha = 0;
+  fadeCallback = callback;
+}
+
+function updateFade() {
+  if (fadeDir === 0) return;
+  if (fadeDir === 1) {
+    fadeAlpha += 0.06;
+    if (fadeAlpha >= 1) {
+      fadeAlpha = 1;
+      fadeDir = -1; // now fade out (from black)
+      if (fadeCallback) { fadeCallback(); fadeCallback = null; }
+    }
+  } else if (fadeDir === -1) {
+    fadeAlpha -= 0.06;
+    if (fadeAlpha <= 0) { fadeAlpha = 0; fadeDir = 0; }
+  }
+}
+
+function drawFade() {
+  if (fadeAlpha > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${fadeAlpha})`;
+    ctx.fillRect(-10, -10, canvas.width+20, canvas.height+20);
+  }
+}
+
+// ============================================================
+// ABILITIES
+// ============================================================
+function isAbilityUnlocked(name) {
+  return currentLevel >= ABILITIES[name].unlockLevel;
+}
+
+function useAbility(name) {
+  if (gameOver || paused) return;
+  if (!isAbilityUnlocked(name)) return;
+  if (abilityState[name] > 0) return; // on cooldown
+  ensureAudio();
+
+  if (name === 'dash') {
+    // Move 3 tiles in current direction, passing through monsters
+    const dx = player.dx || 0, dy = player.dy || 0;
+    if (dx === 0 && dy === 0) return; // need a direction
+    let moved = 0;
+    for (let i = 0; i < 3; i++) {
+      const nx = player.x + dx, ny = player.y + dy;
+      if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS || maze[ny][nx] === 0) break;
+      // Collect coins along the way
+      if (maze[ny][nx] === 11) {
+        maze[ny][nx] = 1; coins++;
+        if (comboTimer > 0) { combo++; if (combo > maxCombo) maxCombo = combo; }
+        else combo = 1;
+        comboTimer = 120;
+        updateCoinDisplay();
+      }
+      player.x = nx; player.y = ny;
+      addParticles(nx, ny, '#3498db', 4);
+      moved++;
+    }
+    if (moved === 0) return; // didn't move, don't consume cooldown
+    GameEvents.emit('abilityDash');
+    abilityState.dash = ABILITIES.dash.cooldown;
+    // Check exit after dash
+    if (maze[player.y][player.x] === 5 && hasKey) {
+      gameOver = true; clearInterval(timerInterval);
+      addParticles(player.x, player.y, '#00ff88', 30); GameEvents.emit('levelComplete');
+      levelComplete(); return;
+    }
+    checkFires(player.x, player.y);
+  }
+
+  if (name === 'shield') {
+    shieldActive = ABILITIES.shield.duration;
+    shieldHits = 2;
+    abilityState.shield = ABILITIES.shield.cooldown;
+    GameEvents.emit('abilityShield');
+    addParticles(player.x, player.y, '#27ae60', 15);
+    addFloatingText(player.x, player.y, 'SHIELD!', '#27ae60');
+  }
+
+  if (name === 'freeze') {
+    freezeActive = ABILITIES.freeze.duration;
+    abilityState.freeze = ABILITIES.freeze.cooldown;
+    GameEvents.emit('abilityFreeze');
+    // Freeze wave expanding from player
+    const maxR = Math.max(COLS, ROWS) * TILE * 0.6;
+    freezeWave = { cx: player.x*TILE+TILE/2, cy: player.y*TILE+TILE/2, radius: 0, maxRadius: maxR, life: 30 };
+    // Add ice particles to all monsters
+    for (let m of monsters) addParticles(m.x, m.y, '#00bcd4', 10);
+    addFloatingText(player.x, player.y, 'FREEZE!', '#00bcd4');
+  }
+
+  updateAbilityBar();
+}
+
+function updateAbilities() {
+  for (let name in abilityState) {
+    if (abilityState[name] > 0) abilityState[name]--;
+  }
+  if (shieldActive > 0) { shieldActive--; if (shieldActive <= 0) shieldHits = 0; }
+  if (freezeActive > 0) freezeActive--;
+  updateAbilityBar();
+}
+
+function updateAbilityBar() {
+  for (let name in ABILITIES) {
+    const slot = document.getElementById('slot-' + name);
+    if (!slot) continue;
+    const unlocked = isAbilityUnlocked(name);
+    slot.classList.toggle('locked', !unlocked);
+    slot.classList.toggle('ready', unlocked && abilityState[name] <= 0);
+    slot.classList.toggle('active',
+      (name === 'shield' && shieldActive > 0) ||
+      (name === 'freeze' && freezeActive > 0)
+    );
+    const overlay = slot.querySelector('.cd-overlay');
+    if (unlocked && abilityState[name] > 0) {
+      overlay.style.height = (abilityState[name] / ABILITIES[name].cooldown * 100) + '%';
+    } else {
+      overlay.style.height = '0%';
+    }
+  }
+}
+
+function togglePause() {
+  if (gameOver) return;
+  if (!COLS) return;
+  const overlay = document.getElementById('paused-screen');
+  if (paused) {
+    paused = false;
+    overlay.classList.remove('show');
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (!gameOver && !paused) { time++; document.getElementById('timer').textContent = time; }
+    }, 1000);
+  } else {
+    paused = true;
+    overlay.classList.add('show');
+    // Clear held D-pad input on pause
+    if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+    dpadDir = null;
+  }
+}
+
+function retryLevel() { hideAllOverlays(); startCurrentLevel(); }
+function goNextLevel() {
+  if (currentLevel < LEVELS.length-1) { currentLevel++; showLevelIntro(); }
+}
+
+// ============================================================
+// DRAWING
+// ============================================================
+function drawMaze() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      let x = c*TILE, y = r*TILE;
+      // Level entry animation: tiles slide in from nearest edge
+      if (levelEntryAnim > 0) {
+        const progress = 1 - (levelEntryAnim / 40); // 0 -> 1
+        const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        // Stagger by distance from center
+        const cx = COLS/2, cy = ROWS/2;
+        const distFromCenter = Math.sqrt((c-cx)*(c-cx) + (r-cy)*(r-cy));
+        const maxDist = Math.sqrt(cx*cx + cy*cy);
+        const tileProgress = Math.max(0, Math.min(1, ease * 1.5 - (distFromCenter/maxDist)*0.5));
+        // Slide from nearest edge
+        const edgeDirX = c < cx ? -1 : 1;
+        const edgeDirY = r < cy ? -1 : 1;
+        const offset = (1 - tileProgress) * TILE * 3;
+        x += edgeDirX * offset * (Math.abs(c-cx)/cx);
+        y += edgeDirY * offset * (Math.abs(r-cy)/cy);
+      }
+      if (maze[r][c] === 0) {
+        ctx.fillStyle = '#0f3460';
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.strokeStyle = '#16213e'; ctx.lineWidth = 1;
+        ctx.strokeRect(x+1, y+1, TILE-2, TILE-2);
+      } else {
+        ctx.fillStyle = '#1a1a2e';
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.strokeStyle = '#222244'; ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, TILE, TILE);
+      }
+      // Heart
+      if (maze[r][c] === 2) {
+        let bounce = Math.sin(animFrame*0.08+c+r)*2;
+        let pulse = 1 + Math.sin(animFrame*0.1+c+r)*0.1;
+        ctx.save();
+        ctx.translate(x+TILE/2, y+TILE/2+bounce);
+        ctx.scale(pulse, pulse);
+        drawHeart(0, 0, TILE*0.32);
+        ctx.restore();
+      }
+      // Treasure box
+      if (maze[r][c] === 10) {
+        let bounce = Math.sin(animFrame*0.06+c+r)*2;
+        let pulse = 1 + Math.sin(animFrame*0.08+c)*0.08;
+        let glow = 0.25 + Math.sin(animFrame*0.07)*0.2;
+        ctx.fillStyle = `rgba(255,215,0,${glow})`;
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.save();
+        ctx.translate(x+TILE/2, y+TILE/2+bounce);
+        ctx.scale(pulse, pulse);
+        drawTreasureBox(0, 0, TILE*0.4);
+        ctx.restore();
+      }
+      // Key
+      if (maze[r][c] === 9) {
+        let bounce = Math.sin(animFrame*0.1+c+r)*2;
+        let pulse = 1 + Math.sin(animFrame*0.12+c)*0.1;
+        let glow = 0.3 + Math.sin(animFrame*0.08)*0.2;
+        ctx.fillStyle = `rgba(255,215,0,${glow})`;
+        ctx.fillRect(x, y, TILE, TILE);
+        ctx.save();
+        ctx.translate(x+TILE/2, y+TILE/2+bounce);
+        ctx.scale(pulse, pulse);
+        drawKey(0, 0, TILE*0.35);
+        ctx.restore();
+      }
+      // Coin
+      if (maze[r][c] === 11) {
+        let bounce = Math.sin(animFrame*0.1+c*0.7+r*0.5)*1.5;
+        let shine = 0.7 + Math.sin(animFrame*0.12+c+r)*0.3;
+        ctx.save();
+        ctx.translate(x+TILE/2, y+TILE/2+bounce);
+        ctx.beginPath();
+        ctx.arc(0, 0, TILE*0.2, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,215,0,${shine})`;
+        ctx.fill();
+        ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-TILE*0.05, -TILE*0.05, TILE*0.06, 0, Math.PI*2);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fill();
+        ctx.restore();
+      }
+      // Exit
+      if (maze[r][c] === 5) {
+        if (hasKey) {
+          let glow = 0.5 + Math.sin(animFrame*0.05)*0.3;
+          ctx.fillStyle = `rgba(0,255,136,${glow})`;
+          ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+          ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2;
+          ctx.strokeRect(x+4, y+4, TILE-8, TILE-8);
+          ctx.fillStyle = '#fff';
+          ctx.font = `bold ${Math.max(6, TILE*0.25)}px monospace`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('EXIT', x+TILE/2, y+TILE/2);
+        } else {
+          let glow = 0.3 + Math.sin(animFrame*0.06)*0.15;
+          ctx.fillStyle = `rgba(255,0,0,${glow})`;
+          ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+          ctx.strokeStyle = '#e94560'; ctx.lineWidth = 2;
+          ctx.strokeRect(x+4, y+4, TILE-8, TILE-8);
+          ctx.fillStyle = '#999';
+          ctx.font = `bold ${Math.max(5, TILE*0.2)}px monospace`;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText('LOCKED', x+TILE/2, y+TILE/2);
+        }
+      }
+    }
+  }
+}
+
+function drawHeart(x, y, size) {
+  ctx.save(); ctx.translate(x, y);
+  ctx.beginPath();
+  let s = size;
+  ctx.moveTo(0, s*0.35);
+  ctx.bezierCurveTo(-s*0.05, s*0.1, -s*0.5, s*0.1, -s*0.5, -s*0.15);
+  ctx.bezierCurveTo(-s*0.5, -s*0.45, -s*0.15, -s*0.55, 0, -s*0.3);
+  ctx.bezierCurveTo(s*0.15, -s*0.55, s*0.5, -s*0.45, s*0.5, -s*0.15);
+  ctx.bezierCurveTo(s*0.5, s*0.1, s*0.05, s*0.1, 0, s*0.35);
+  ctx.closePath();
+  ctx.fillStyle = '#e94560'; ctx.fill();
+  ctx.strokeStyle = '#c73650'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(-s*0.2, -s*0.2, s*0.1, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawKey(x, y, size) {
+  ctx.save(); ctx.translate(x, y);
+  let s = size;
+  // Key head (circle with hole)
+  ctx.beginPath();
+  ctx.arc(0, -s*0.25, s*0.4, 0, Math.PI*2);
+  ctx.fillStyle = '#ffd700'; ctx.fill();
+  ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0, -s*0.25, s*0.18, 0, Math.PI*2);
+  ctx.fillStyle = '#1a1a2e'; ctx.fill();
+  // Key shaft
+  ctx.fillStyle = '#ffd700';
+  ctx.fillRect(-s*0.08, s*0.05, s*0.16, s*0.6);
+  ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1;
+  ctx.strokeRect(-s*0.08, s*0.05, s*0.16, s*0.6);
+  // Key teeth
+  ctx.fillRect(s*0.08, s*0.4, s*0.18, s*0.08);
+  ctx.fillRect(s*0.08, s*0.55, s*0.14, s*0.08);
+  // Shine
+  ctx.beginPath();
+  ctx.arc(-s*0.12, -s*0.35, s*0.08, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.fill();
+  ctx.restore();
+}
+
+function drawTreasureBox(x, y, size) {
+  ctx.save(); ctx.translate(x, y);
+  let s = size;
+  // Box body (bottom half)
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(-s*0.5, -s*0.05, s, s*0.55);
+  ctx.strokeStyle = '#5C2E00'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(-s*0.5, -s*0.05, s, s*0.55);
+  // Horizontal band
+  ctx.fillStyle = '#b8860b';
+  ctx.fillRect(-s*0.5, s*0.15, s, s*0.1);
+  // Lid (top half, slightly wider)
+  ctx.fillStyle = '#A0522D';
+  ctx.fillRect(-s*0.55, -s*0.45, s*1.1, s*0.42);
+  ctx.strokeStyle = '#5C2E00'; ctx.lineWidth = 1.5;
+  ctx.strokeRect(-s*0.55, -s*0.45, s*1.1, s*0.42);
+  // Lid band
+  ctx.fillStyle = '#b8860b';
+  ctx.fillRect(-s*0.55, -s*0.12, s*1.1, s*0.09);
+  // Lock/clasp (golden circle)
+  ctx.beginPath();
+  ctx.arc(0, s*0.05, s*0.12, 0, Math.PI*2);
+  ctx.fillStyle = '#ffd700'; ctx.fill();
+  ctx.strokeStyle = '#b8860b'; ctx.lineWidth = 1; ctx.stroke();
+  // Keyhole in clasp
+  ctx.beginPath();
+  ctx.arc(0, s*0.03, s*0.04, 0, Math.PI*2);
+  ctx.fillStyle = '#5C2E00'; ctx.fill();
+  ctx.fillRect(-s*0.015, s*0.03, s*0.03, s*0.06);
+  // Sparkle stars
+  let sparkle = Math.sin(animFrame*0.15)*0.5+0.5;
+  ctx.fillStyle = `rgba(255,215,0,${sparkle})`;
+  ctx.font = `${Math.max(4, s*0.3)}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('*', -s*0.4, -s*0.55);
+  ctx.fillText('*', s*0.35, -s*0.5);
+  ctx.fillText('*', s*0.1, -s*0.6);
+  ctx.restore();
+}
+
+function drawFires() {
+  for (let f of fires) {
+    let x = f.x*TILE, y = f.y*TILE;
+    if (!f.active && f.cooldown > 0) {
+      f.cooldown--;
+      if (f.cooldown <= 0) f.active = true;
+    }
+    if (f.active) {
+      // Fire glow
+      let glow = 0.25 + Math.sin(animFrame*0.12)*0.15;
+      ctx.fillStyle = `rgba(255,100,0,${glow})`;
+      ctx.fillRect(x, y, TILE, TILE);
+      // Animated flames
+      let cx = x + TILE/2, cy = y + TILE;
+      for (let i = 0; i < 5; i++) {
+        let fx = cx + (i-2)*TILE*0.18;
+        let flickerH = TILE*(0.5 + Math.sin(animFrame*0.18 + i*1.3)*0.2);
+        let flickerW = TILE*0.16 + Math.sin(animFrame*0.15 + i)*TILE*0.04;
+        // Outer flame (orange)
+        ctx.beginPath();
+        ctx.moveTo(fx - flickerW, cy);
+        ctx.quadraticCurveTo(fx - flickerW*0.5, cy - flickerH*0.6, fx, cy - flickerH);
+        ctx.quadraticCurveTo(fx + flickerW*0.5, cy - flickerH*0.6, fx + flickerW, cy);
+        ctx.closePath();
+        ctx.fillStyle = (i % 2 === 0) ? '#ff6600' : '#ff9900';
+        ctx.fill();
+        // Inner flame (yellow)
+        let innerH = flickerH * 0.5;
+        let innerW = flickerW * 0.5;
+        ctx.beginPath();
+        ctx.moveTo(fx - innerW, cy);
+        ctx.quadraticCurveTo(fx, cy - innerH*1.2, fx + innerW, cy);
+        ctx.closePath();
+        ctx.fillStyle = '#ffdd00';
+        ctx.fill();
+      }
+    } else {
+      // Embers / cooling
+      ctx.fillStyle = 'rgba(255,100,0,0.1)';
+      ctx.fillRect(x+4, y+4, TILE-8, TILE-8);
+    }
+  }
+}
+
+function drawMonsters() {
+  for (let m of monsters) {
+    let x = m.x*TILE + TILE/2;
+    let y = m.y*TILE + TILE/2;
+    let wobble = Math.sin(animFrame*0.15 + m.x)*2;
+    let rad = TILE*0.35;
+    let mt = MONSTER_TYPES[m.type];
+
+    // State-based visual modifiers
+    let alpha = 1;
+    if (m.type === 8 && m.state === 'lurk') alpha = 0.4 + Math.sin(animFrame * 0.05) * 0.15;
+    if (m.type === 7 && m.state === 'rest') alpha = 0.6;
+    ctx.globalAlpha = alpha;
+
+    // Glow aura
+    ctx.beginPath();
+    ctx.arc(x, y+wobble, rad*1.4, 0, Math.PI*2);
+    let glowColor = mt.glow;
+    if (m.state === 'alert') glowColor = 'rgba(255,255,0,0.3)';
+    if (m.state === 'chase' || m.state === 'ambush') glowColor = 'rgba(255,0,0,0.35)';
+    ctx.fillStyle = glowColor;
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.arc(x, y+wobble, rad, 0, Math.PI*2);
+    ctx.fillStyle = mt.color; ctx.fill();
+    ctx.strokeStyle = mt.stroke; ctx.lineWidth = 2; ctx.stroke();
+
+    // For black monster, add a dark inner shadow
+    if (m.type === 8) {
+      ctx.beginPath();
+      ctx.arc(x, y+wobble, rad*0.6, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fill();
+    }
+
+    // Eyes
+    let es = Math.max(2.5, TILE*0.11);
+    let eyeColor = m.type === 8 ? '#e74c3c' : '#fff';
+    ctx.fillStyle = eyeColor;
+    ctx.beginPath();
+    ctx.arc(x-es, y-es*0.5+wobble, es, 0, Math.PI*2);
+    ctx.arc(x+es, y-es*0.5+wobble, es, 0, Math.PI*2);
+    ctx.fill();
+    let pdx = Math.sign(player.x - m.x), pdy = Math.sign(player.y - m.y);
+    ctx.fillStyle = m.type === 8 ? '#ff0' : '#2c3e50';
+    ctx.beginPath();
+    ctx.arc(x-es+pdx*es*0.45, y-es*0.5+wobble+pdy*es*0.3, es*0.45, 0, Math.PI*2);
+    ctx.arc(x+es+pdx*es*0.45, y-es*0.5+wobble+pdy*es*0.3, es*0.45, 0, Math.PI*2);
+    ctx.fill();
+
+    // Tentacles
+    ctx.strokeStyle = mt.color; ctx.lineWidth = 2;
+    for (let t = -1; t <= 1; t++) {
+      ctx.beginPath();
+      ctx.moveTo(x + t*TILE*0.18, y+rad+wobble);
+      for (let s = 0; s < 3; s++) {
+        ctx.lineTo(
+          x + t*TILE*0.18 + Math.sin(animFrame*0.1+s+t)*3,
+          y + rad+wobble + (s+1)*3
+        );
+      }
+      ctx.stroke();
+    }
+
+    // Damage number
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(7, TILE*0.22)}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('-' + mt.damage, x, y + rad + TILE*0.22 + wobble);
+
+    // State indicator text
+    if (m.state === 'chase' || m.state === 'ambush') {
+      ctx.fillStyle = '#ff4444';
+      ctx.font = `bold ${Math.max(5, TILE*0.18)}px monospace`;
+      ctx.fillText('!', x, y - rad - 4 + wobble);
+    } else if (m.state === 'rest') {
+      ctx.fillStyle = '#88aaff';
+      ctx.font = `${Math.max(5, TILE*0.18)}px monospace`;
+      ctx.fillText('zzz', x, y - rad - 4 + wobble);
+    }
+
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawPlayer() {
+  // Ghost trail
+  for (let i = 0; i < playerTrail.length; i++) {
+    const t = playerTrail[i];
+    const alpha = (i + 1) / (playerTrail.length + 1) * 0.2;
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(t.x*TILE+TILE/2, t.y*TILE+TILE/2, TILE*0.3, 0, Math.PI*2);
+    ctx.fillStyle = getPlayerColor().color;
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Blink effect during invincibility
+  if (invincible > 0 && Math.floor(animFrame / 4) % 2 === 0) return;
+
+  let x = player.x*TILE + TILE/2;
+  let y = player.y*TILE + TILE/2;
+  let rad = TILE*0.35;
+
+  const pc = getPlayerColor();
+  const hexToRGBA = (hex, a) => {
+    const r = parseInt(hex.length === 4 ? hex[1]+hex[1] : hex.slice(1,3), 16);
+    const g = parseInt(hex.length === 4 ? hex[2]+hex[2] : hex.slice(3,5), 16);
+    const b = parseInt(hex.length === 4 ? hex[3]+hex[3] : hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+  let grad = ctx.createRadialGradient(x, y, 0, x, y, TILE*0.7);
+  grad.addColorStop(0, hexToRGBA(pc.color, 0.3));
+  grad.addColorStop(1, hexToRGBA(pc.color, 0));
+  ctx.fillStyle = grad;
+  ctx.fillRect(x-TILE, y-TILE, TILE*2, TILE*2);
+
+  ctx.beginPath();
+  ctx.arc(x, y, rad, 0, Math.PI*2);
+  ctx.fillStyle = pc.color; ctx.fill();
+  ctx.strokeStyle = pc.stroke; ctx.lineWidth = 2; ctx.stroke();
+
+  let fx = player.dx||0, fy = player.dy||0;
+  let es = Math.max(2.5, TILE*0.11);
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(x-es+fx*es*0.6, y-es*0.5+fy*es*0.6, es, 0, Math.PI*2);
+  ctx.arc(x+es+fx*es*0.6, y-es*0.5+fy*es*0.6, es, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#2c3e50';
+  ctx.beginPath();
+  ctx.arc(x-es+fx*es, y-es*0.5+fy*es*0.8, es*0.45, 0, Math.PI*2);
+  ctx.arc(x+es+fx*es, y-es*0.5+fy*es*0.8, es*0.45, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x+fx*2, y+es*0.7+fy*2, es*0.7, 0.1*Math.PI, 0.9*Math.PI);
+  ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Shield bubble
+  if (shieldActive > 0) {
+    let pulse = 1 + Math.sin(animFrame * 0.15) * 0.08;
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 1.5 * pulse, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(39,174,96,${0.4 + Math.sin(animFrame*0.1)*0.2})`;
+    ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = `rgba(39,174,96,0.1)`;
+    ctx.fill();
+  }
+}
+
+function drawParticles() {
+  for (let i = 0; i < activeParticles; i++) {
+    const p = particlePool[i];
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha;
+    // Fade from color to color2 if provided
+    ctx.fillStyle = p.color2 && alpha < 0.5 ? p.color2 : p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(0, p.size), 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+// Fixed timestep: game logic runs at exactly 60 ticks/sec regardless of display refresh rate
+const TICK_RATE = 1000 / 60; // ~16.667ms per tick
+let lastFrameTime = 0, tickAccum = 0;
+
+function gameTick() {
+  // One fixed-step update (all existing frame counters remain valid)
+  animFrame++;
+  if (levelEntryAnim > 0) levelEntryAnim--;
+  if (!gameOver && !paused && COLS) {
+    if (invincible > 0) invincible--;
+    if (comboTimer > 0) {
+      comboTimer--;
+      if (comboTimer <= 0) { combo = 0; updateCoinDisplay(); }
+    }
+    updateAbilities();
+    if (freezeActive <= 0) moveMonsters();
+    checkMonsterCollision();
+  }
+  updateDyingMonsters();
+  updateParticles();
+  updateFloatingTexts();
+  updateFade();
+  if (screenShake > 0) screenShake--;
+  // Update freeze wave
+  if (freezeWave) {
+    freezeWave.radius += freezeWave.maxRadius / 20; // expand over ~20 frames
+    freezeWave.life--;
+    if (freezeWave.life <= 0) freezeWave = null;
+  }
+}
+
+function gameLoop(timestamp) {
+  if (!lastFrameTime) lastFrameTime = timestamp;
+  let delta = timestamp - lastFrameTime;
+  lastFrameTime = timestamp;
+  // Clamp delta to avoid spiral-of-death on long pauses/tab switches
+  if (delta > 200) delta = 200;
+  tickAccum += delta;
+
+  // Run fixed-step logic for each accumulated tick
+  while (tickAccum >= TICK_RATE) {
+    gameTick();
+    tickAccum -= TICK_RATE;
+  }
+
+  // Render once per display frame
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  if (COLS) {
+    ctx.save();
+    if (screenShake > 0) {
+      const sx = (Math.random()-0.5) * 6;
+      const sy = (Math.random()-0.5) * 6;
+      ctx.translate(sx, sy);
+    }
+    drawMaze();
+    drawFires();
+    drawMonsters();
+    drawDyingMonsters();
+    drawPlayer();
+    drawParticles();
+    // Freeze wave ring
+    if (freezeWave) {
+      const fw = freezeWave;
+      const alpha = Math.max(0, fw.life / 30);
+      ctx.beginPath();
+      ctx.arc(fw.cx, fw.cy, fw.radius, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(0,188,212,${alpha * 0.6})`;
+      ctx.lineWidth = 3 + (1 - alpha) * 4;
+      ctx.stroke();
+      // Inner glow ring
+      ctx.beginPath();
+      ctx.arc(fw.cx, fw.cy, fw.radius * 0.92, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(0,230,255,${alpha * 0.3})`;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+    }
+    drawFloatingTexts();
+    ctx.restore();
+    drawFade();
+  }
+  requestAnimationFrame(gameLoop);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if ((e.key === 'p' || e.key === 'P' || e.key === 'Escape') && COLS && !gameOver) {
+    togglePause(); e.preventDefault(); return;
+  }
+  const anyOverlay = document.querySelector('.overlay.show');
+  if (anyOverlay && anyOverlay.id !== '') {
+    if (e.key === 'Enter') {
+      if (anyOverlay.id === 'level-intro') startCurrentLevel();
+      else if (anyOverlay.id === 'level-complete') goNextLevel();
+      else if (anyOverlay.id === 'game-over') retryLevel();
+    }
+    return;
+  }
+  switch (e.key) {
+    case 'ArrowUp': case 'w': case 'W': movePlayer(0,-1); e.preventDefault(); break;
+    case 'ArrowDown': case 's': case 'S': movePlayer(0,1); e.preventDefault(); break;
+    case 'ArrowLeft': case 'a': case 'A': movePlayer(-1,0); e.preventDefault(); break;
+    case 'ArrowRight': case 'd': case 'D': movePlayer(1,0); e.preventDefault(); break;
+    case ' ': useAbility('dash'); e.preventDefault(); break;
+    case 'Shift': useAbility('shield'); e.preventDefault(); break;
+    case 'f': case 'F': useAbility('freeze'); e.preventDefault(); break;
+  }
+});
+
+// --- Mobile D-pad with repeat support ---
+let dpadInterval = null;
+let dpadDir = null;
+
+function dpadStart(dx, dy, btnEl) {
+  movePlayer(dx, dy);
+  dpadDir = [dx, dy];
+  btnEl.classList.add('pressed');
+  if (dpadInterval) clearInterval(dpadInterval);
+  dpadInterval = setInterval(() => movePlayer(dx, dy), 150);
+}
+function dpadEnd() {
+  if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+  dpadDir = null;
+  document.querySelectorAll('.dpad button').forEach(b => b.classList.remove('pressed'));
+}
+
+const dirs = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
+Object.keys(dirs).forEach(d => {
+  const btn = document.getElementById('btn-' + d);
+  if (!btn) return;
+  const [dx, dy] = dirs[d];
+  btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); dpadStart(dx, dy, btn); }, { passive: false });
+  btn.addEventListener('touchend', (e) => { e.preventDefault(); dpadEnd(); }, { passive: false });
+  btn.addEventListener('touchcancel', (e) => { dpadEnd(); }, { passive: false });
+  btn.addEventListener('mousedown', (e) => { e.preventDefault(); dpadStart(dx, dy, btn); });
+});
+document.addEventListener('mouseup', dpadEnd);
+document.addEventListener('touchend', (e) => {
+  // Only end if touch ended outside dpad
+  if (dpadDir && !e.target.closest('.dpad')) dpadEnd();
+});
+
+// --- Swipe on canvas ---
+let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+  touchStartTime = Date.now();
+}, { passive: false });
+canvas.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  let dx = e.changedTouches[0].clientX - touchStartX;
+  let dy = e.changedTouches[0].clientY - touchStartY;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist < 15) return;
+  if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
+  else movePlayer(0, dy > 0 ? 1 : -1);
+}, { passive: false });
+
+// Prevent default touch behaviors on body
+document.body.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+
+// ============================================================
+// START
+// ============================================================
+updateSoundButtons();
+showTitleScreen(true); // skip fade on initial load
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
