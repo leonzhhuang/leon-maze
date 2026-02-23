@@ -81,30 +81,33 @@
   #bottom-controls {
     flex-shrink: 0;
   }
-  /* D-pad: hidden by default, shown on touch/mobile as invisible overlay */
-  #mobile-controls {
+  /* Virtual joystick overlay (touch only) */
+  #vjoystick {
+    display: none; position: fixed; z-index: 20;
+    pointer-events: none;
+  }
+  #vjoystick .vj-base {
+    width: 120px; height: 120px; border-radius: 50%;
+    border: 2px solid rgba(233,69,96,0.35);
+    background: rgba(26,26,46,0.2);
+    position: relative;
+  }
+  #vjoystick .vj-dir {
+    position: absolute; width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(233,69,96,0.45);
     display: none;
   }
-  .dpad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(3, 1fr);
-    gap: 0;
-    width: 100%; height: 100%;
+  #vjoystick .vj-dir.active { display: block; }
+  #vjoystick .vj-up    { top: 4px;  left: 50%; transform: translateX(-50%); }
+  #vjoystick .vj-down  { bottom: 4px; left: 50%; transform: translateX(-50%); }
+  #vjoystick .vj-left  { left: 4px; top: 50%; transform: translateY(-50%); }
+  #vjoystick .vj-right { right: 4px; top: 50%; transform: translateY(-50%); }
+  #vjoystick .vj-thumb {
+    position: absolute; width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(233,69,96,0.5); border: 2px solid rgba(233,69,96,0.7);
+    top: 50%; left: 50%; transform: translate(-50%,-50%);
+    transition: top 0.05s, left 0.05s;
   }
-  .dpad-empty { }
-  .dpad button {
-    width: 100%; height: 100%;
-    font-size: 0;
-    background: transparent;
-    color: transparent;
-    border: none;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    outline: none;
-  }
-  .dpad button:active, .dpad button.pressed { background: rgba(233,69,96,0.12); }
 
   #instructions {
     font-size: min(2.8vw, 11px);
@@ -151,15 +154,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   #pause-btn:active { background: #e94560; color: #fff; }
-  #fullscreen-btn {
-    position: fixed; top: env(safe-area-inset-top, 8px); left: 10px;
-    z-index: 15; background: rgba(22,33,62,0.85); border: 2px solid #00ff88;
-    color: #00ff88; font-size: 16px; width: 36px; height: 36px;
-    border-radius: 8px; cursor: pointer; display: none;
-    align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #fullscreen-btn:active { background: #00ff88; color: #1a1a2e; }
+
 
   /* Overlays */
   .overlay {
@@ -243,26 +238,19 @@
   #progress-bar { width: min(50vw, 200px); height: 5px; background: #16213e; border-radius: 3px; margin-top: 8px; overflow: hidden; }
   #progress-fill { height: 100%; background: linear-gradient(90deg, #e94560, #ffd700); border-radius: 3px; transition: width 0.5s; }
 
-  /* Mobile: overlay controls on game, maximize canvas space */
+  /* Mobile: maximize canvas, overlay ability bar */
   @media (hover: none) and (pointer: coarse), (max-width: 768px) {
     h1 { display: none; }
     #instructions { display: none; }
     #info, #info-row2 { font-size: min(3vw, 12px); margin-bottom: 1px; }
     .heart-icon { font-size: min(3.5vw, 14px) !important; }
-    /* Invisible D-pad overlaid on left half of game area */
-    #mobile-controls {
-      display: block !important; position: absolute;
-      left: 0; top: 0; bottom: 0; width: 50%;
-      z-index: 8; pointer-events: auto;
-    }
-    /* Remove bottom-controls from flow */
+    /* Ability bar: bottom-right overlay */
     #bottom-controls {
       position: fixed; bottom: 0; right: 0;
       pointer-events: none; z-index: 10;
       padding: 0 6px;
       padding-bottom: max(env(safe-area-inset-bottom, 4px), 4px);
     }
-    /* Ability bar: small buttons, bottom-right */
     #ability-bar {
       flex-direction: column !important; padding: 0; gap: 3px !important;
       pointer-events: auto; opacity: 0.75;
@@ -286,26 +274,21 @@
   <div id="key-status">&#128477;</div>
   <div style="text-align:right;font-size:min(2.8vw,11px);color:#666;" id="score-display"></div>
 </div>
-<div id="game-area">
-  <canvas id="game" width="640" height="640"></canvas>
-  <div id="mobile-controls">
-    <div class="dpad">
-      <div class="dpad-empty"></div>
-      <button id="btn-up" aria-label="Up"></button>
-      <div class="dpad-empty"></div>
-      <button id="btn-left" aria-label="Left"></button>
-      <div class="dpad-empty"></div>
-      <button id="btn-right" aria-label="Right"></button>
-      <div class="dpad-empty"></div>
-      <button id="btn-down" aria-label="Down"></button>
-      <div class="dpad-empty"></div>
-    </div>
-  </div>
-</div>
+<div id="game-area"><canvas id="game" width="640" height="640"></canvas></div>
 <div id="instructions">KEY unlocks exit | Hearts = +1 life | Coins = score | P = Pause | Abilities: Space/Shift/F</div>
 
 <button id="pause-btn" onclick="togglePause()">&#10074;&#10074;</button>
-<button id="fullscreen-btn">&#x26F6;</button>
+
+<!-- Virtual joystick indicator (shown on touch) -->
+<div id="vjoystick">
+  <div class="vj-base">
+    <div class="vj-dir vj-up"></div>
+    <div class="vj-dir vj-down"></div>
+    <div class="vj-dir vj-left"></div>
+    <div class="vj-dir vj-right"></div>
+    <div class="vj-thumb"></div>
+  </div>
+</div>
 
 <div id="bottom-controls">
   <div id="ability-bar">
@@ -930,9 +913,9 @@ function showTitleScreen(skipFade) {
     document.getElementById('pause-btn').style.display = 'none';
     document.getElementById('ability-bar').style.display = 'none';
     if (timerInterval) clearInterval(timerInterval);
-    // Clear any held D-pad input
-    if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
-    dpadDir = null;
+    // Clear any held touch input
+    if (typeof vjEnd === 'function') vjEnd();
+    else { if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; } dpadDir = null; }
   };
   if (skipFade) doIt(); else fadeTransition(doIt);
 }
@@ -1053,9 +1036,9 @@ function startCurrentLevel() {
   abilityState = { dash: 0, shield: 0, freeze: 0 };
   shieldActive = 0; shieldHits = 0; freezeActive = 0; freezeWave = null;
   screenShake = 0; playerTrail = []; dyingMonsters = []; damageTaken = 0;
-  // Clear any held D-pad input to prevent bleed from previous scene
-  if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
-  dpadDir = null;
+  // Clear any held touch input to prevent bleed from previous scene
+  if (typeof vjEnd === 'function') vjEnd();
+  else { if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; } dpadDir = null; }
   levelEntryAnim = 40; // ~0.7s of tile slide-in
   document.getElementById('pause-btn').style.display = 'flex';
   document.getElementById('ability-bar').style.display = 'flex';
@@ -1699,9 +1682,9 @@ function togglePause() {
   } else {
     paused = true;
     overlay.classList.add('show');
-    // Clear held D-pad input on pause
-    if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
-    dpadDir = null;
+    // Clear held touch input on pause
+    if (typeof vjEnd === 'function') vjEnd();
+    else { if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; } dpadDir = null; }
   }
 }
 
@@ -2233,85 +2216,108 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// --- Mobile D-pad with repeat support ---
+// --- Virtual Joystick (touch-relative D-pad) ---
 let dpadInterval = null;
 let dpadDir = null;
+const vjEl = document.getElementById('vjoystick');
+const vjThumb = vjEl.querySelector('.vj-thumb');
+const vjDirs = { up: vjEl.querySelector('.vj-up'), down: vjEl.querySelector('.vj-down'),
+                 left: vjEl.querySelector('.vj-left'), right: vjEl.querySelector('.vj-right') };
+let vjTouchId = null, vjOriginX = 0, vjOriginY = 0;
+const VJ_DEAD = 18; // pixels before direction registers
+const VJ_MOVE_RATE = 130; // ms between repeated moves
 
-function dpadStart(dx, dy, btnEl) {
-  movePlayer(dx, dy);
-  dpadDir = [dx, dy];
-  btnEl.classList.add('pressed');
-  if (dpadInterval) clearInterval(dpadInterval);
-  dpadInterval = setInterval(() => movePlayer(dx, dy), 150);
+function vjStart(touch) {
+  vjTouchId = touch.identifier;
+  vjOriginX = touch.clientX;
+  vjOriginY = touch.clientY;
+  // Show joystick centered on touch point
+  vjEl.style.display = 'block';
+  vjEl.style.left = (vjOriginX - 60) + 'px';
+  vjEl.style.top = (vjOriginY - 60) + 'px';
+  vjThumb.style.left = '50%'; vjThumb.style.top = '50%';
+  Object.values(vjDirs).forEach(d => d.classList.remove('active'));
 }
-function dpadEnd() {
-  if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
-  dpadDir = null;
-  document.querySelectorAll('.dpad button').forEach(b => b.classList.remove('pressed'));
-}
 
-const dirs = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
-Object.keys(dirs).forEach(d => {
-  const btn = document.getElementById('btn-' + d);
-  if (!btn) return;
-  const [dx, dy] = dirs[d];
-  btn.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); dpadStart(dx, dy, btn); }, { passive: false });
-  btn.addEventListener('touchend', (e) => { e.preventDefault(); dpadEnd(); }, { passive: false });
-  btn.addEventListener('touchcancel', (e) => { dpadEnd(); }, { passive: false });
-  btn.addEventListener('mousedown', (e) => { e.preventDefault(); dpadStart(dx, dy, btn); });
-});
-document.addEventListener('mouseup', dpadEnd);
-document.addEventListener('touchend', (e) => {
-  // Only end if touch ended outside dpad
-  if (dpadDir && !e.target.closest('.dpad')) dpadEnd();
-});
+function vjMove(touch) {
+  const dx = touch.clientX - vjOriginX;
+  const dy = touch.clientY - vjOriginY;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  // Move thumb visual (clamped to base radius)
+  const clamp = Math.min(dist, 50);
+  const angle = Math.atan2(dy, dx);
+  const tx = 50 + (clamp / 50) * Math.cos(angle) * 42;
+  const ty = 50 + (clamp / 50) * Math.sin(angle) * 42;
+  vjThumb.style.left = tx + '%'; vjThumb.style.top = ty + '%';
 
-// --- Swipe on canvas ---
-let touchStartX = 0, touchStartY = 0, touchStartTime = 0;
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  touchStartX = e.touches[0].clientX;
-  touchStartY = e.touches[0].clientY;
-  touchStartTime = Date.now();
-}, { passive: false });
-canvas.addEventListener('touchend', (e) => {
-  e.preventDefault();
-  let dx = e.changedTouches[0].clientX - touchStartX;
-  let dy = e.changedTouches[0].clientY - touchStartY;
-  let dist = Math.sqrt(dx*dx + dy*dy);
-  if (dist < 15) return;
-  if (Math.abs(dx) > Math.abs(dy)) movePlayer(dx > 0 ? 1 : -1, 0);
-  else movePlayer(0, dy > 0 ? 1 : -1);
-}, { passive: false });
+  // Determine direction
+  let newDir = null;
+  if (dist >= VJ_DEAD) {
+    if (Math.abs(dx) > Math.abs(dy)) newDir = dx > 0 ? 'right' : 'left';
+    else newDir = dy > 0 ? 'down' : 'up';
+  }
+  // Highlight direction
+  Object.entries(vjDirs).forEach(([k, el]) => el.classList.toggle('active', k === newDir));
 
-// Prevent default touch behaviors on body
-document.body.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
+  const dirMap = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
+  const newDirVec = newDir ? dirMap[newDir] : null;
+  const same = dpadDir && newDirVec && dpadDir[0] === newDirVec[0] && dpadDir[1] === newDirVec[1];
 
-// ============================================================
-// FULLSCREEN
-// ============================================================
-const fsBtn = document.getElementById('fullscreen-btn');
-function toggleFullscreen() {
-  const el = document.documentElement;
-  if (document.fullscreenElement || document.webkitFullscreenElement) {
-    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-  } else if (el.requestFullscreen) {
-    el.requestFullscreen().catch(() => {});
-  } else if (el.webkitRequestFullscreen) {
-    el.webkitRequestFullscreen();
+  if (!same) {
+    if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+    dpadDir = newDirVec;
+    if (newDirVec) {
+      movePlayer(newDirVec[0], newDirVec[1]);
+      dpadInterval = setInterval(() => movePlayer(newDirVec[0], newDirVec[1]), VJ_MOVE_RATE);
+    }
   }
 }
-function updateFsIcon() {
-  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-  fsBtn.textContent = isFs ? '\u2716' : '\u26F6';
+
+function vjEnd() {
+  vjTouchId = null;
+  vjEl.style.display = 'none';
+  if (dpadInterval) { clearInterval(dpadInterval); dpadInterval = null; }
+  dpadDir = null;
+  Object.values(vjDirs).forEach(d => d.classList.remove('active'));
 }
-fsBtn.addEventListener('click', toggleFullscreen);
-document.addEventListener('fullscreenchange', () => { updateFsIcon(); resizeCanvas(); });
-document.addEventListener('webkitfullscreenchange', () => { updateFsIcon(); resizeCanvas(); });
-// Show on mobile/touch
-if ('ontouchstart' in window || window.matchMedia('(max-width:768px)').matches) {
-  fsBtn.style.display = 'flex';
-}
+
+// Listen on the whole document so the joystick works anywhere
+document.addEventListener('touchstart', (e) => {
+  if (vjTouchId !== null) return; // already tracking a joystick touch
+  const t = e.touches[0];
+  // Don't hijack touches on overlays, buttons, or ability bar
+  const tag = t.target.tagName;
+  if (t.target.closest('.overlay.show') || t.target.closest('#ability-bar') ||
+      t.target.closest('#pause-btn') || tag === 'BUTTON' || tag === 'A') return;
+  e.preventDefault();
+  vjStart(t);
+}, { passive: false });
+
+document.addEventListener('touchmove', (e) => {
+  if (vjTouchId === null) return;
+  for (let i = 0; i < e.touches.length; i++) {
+    if (e.touches[i].identifier === vjTouchId) {
+      e.preventDefault();
+      vjMove(e.touches[i]);
+      return;
+    }
+  }
+}, { passive: false });
+
+document.addEventListener('touchend', (e) => {
+  if (vjTouchId === null) return;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === vjTouchId) {
+      vjEnd();
+      return;
+    }
+  }
+}, { passive: false });
+
+document.addEventListener('touchcancel', () => { if (vjTouchId !== null) vjEnd(); }, { passive: false });
+
+// Prevent default touch behaviors (scrolling, zooming)
+document.body.addEventListener('touchmove', (e) => { e.preventDefault(); }, { passive: false });
 
 // ============================================================
 // START
